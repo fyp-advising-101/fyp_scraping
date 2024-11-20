@@ -1,10 +1,18 @@
 from flask import Flask, request, jsonify 
 from flask_cors import CORS
-import threading
 import datetime
+from concurrent.futures import ThreadPoolExecutor
 from database.database import db
 from website_crawler.website_crawler.spiders.scraper import run_spider
 from instagram_content_getter.get_posts import get_posts
+
+from instragram_scraper.InstagramScraper import InstagramScraper
+
+# Open-AI key
+#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
+
+from dotenv import load_dotenv
+import os
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -12,6 +20,13 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 DB_CONFIG = "sqlite:///database.db"
 app.config["SQLALCHEMY_DATABASE_URI"] = DB_CONFIG
 db.init_app(app)
+
+load_dotenv()
+INSTAGRAM_USER_ID = os.getenv("INSTAGRAM_USER_ID")
+APP_SECRET = os.getenv("APP_SECRET")
+APP_ID = os.getenv("APP_ID")
+debug = os.getenv("DEBUG", "False")  
+
 
 with app.app_context():
     from models.jobScheduler import JobScheduler
@@ -21,13 +36,6 @@ with app.app_context():
     if app.config["SQLALCHEMY_DATABASE_URI"]:
         db.create_all()
     
-def run_scraper_in_thread(urls_to_scrape, job_id):
-    thread = threading.Thread(target=run_spider_in_context, args=(urls_to_scrape, job_id))
-    thread.start()
-
-def run_spider_in_context(urls_to_scrape, job_id):
-    with app.app_context():
-        run_spider(urls_to_scrape, job_id)
 
 @app.route('/website_scrape', methods=['GET'])
 def scrape():
@@ -46,25 +54,33 @@ def scrape():
                 # Update the status to 'running'
                 task.status = 'Running'
                 db.session.commit()
-                job_id = task.id
             else:
                 return jsonify({'error': 'No website scrapping task scheduled'}), 404
 
             # Start the scraper in a separate thread to avoid blocking
-            run_scraper_in_thread(urls_to_scrape, job_id)
+            def run_scraper():
+                with app.app_context():
+                    try:
+                        run_spider(urls_to_scrape, task.id)
+                    except Exception as e:
+                        print(f"Error while starting spider: {e}")
 
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                executor.submit(run_scraper)
+                
             return jsonify({'message': f'Scraping started for URLs: {urls_to_scrape}', 'task_name': task.task_name}), 200
         except Exception as e:
+            print(f'Error while scraping websites: {e}')
             db.session.rollback()
-            return jsonify({'message': f'Error while starting scrape, Exception {e}'}), 200
+            return jsonify({'message': f'Error while scrapping websites: {e}'}), 200
         
-@app.route("/instagram_content_getter", methods = ['GET'])
-def instagram_content_getter():
+@app.route("/instagram_scrape", methods = ['GET'])
+def instagram_scrape():
     try:
-        target_accounts = InstagramTarget.query.all()
-        print(target_accounts)
+        scrape_targets = ScrapeTarget.query.filter_by(type='instagram').all()
+        accounts_to_scrape = [target.url for target in scrape_targets]
 
-        if not target_accounts:
+        if not accounts_to_scrape:
             return jsonify({'error': 'No accounts to get posts from found in the database.'}), 404
         
         #Commented Out for testing..
@@ -82,13 +98,16 @@ def instagram_content_getter():
         #     return jsonify({'error': 'No instagram content fetching task scheduled'}), 404
 
         
-        get_posts(target_accounts)
+        #get_posts(target_accounts)
+        instagram_scraper = InstagramScraper(INSTAGRAM_USER_ID, APP_ID, APP_SECRET)
+        instagram_scraper.get_posts(accounts_to_scrape)
 
-        return jsonify({'message': f'Fetching started for Accounts: {target_accounts}', 'task_name': 'Get Instagram Content'}), 200
+        return jsonify({'message': f'Fetching started for Accounts: {accounts_to_scrape}', 'task_name': 'Get Instagram Content'}), 200
+        #return jsonify({'message': f'Fetching started for Accounts: {target_accounts}', 'task_name': {task.task_name}}), 200
     except Exception as e:
-        print(e)
+        print(f'Error while scraping websites: {e}')
         db.session.rollback()
-        return jsonify({'message': f'Error while starting scrape, Exception {e}'}), 200
+        return jsonify({'message': f'Error while scrapping websites: {e}'}), 200
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=3001)
