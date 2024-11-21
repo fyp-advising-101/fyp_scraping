@@ -5,11 +5,12 @@ from concurrent.futures import ThreadPoolExecutor
 from database.database import db
 from website_crawler.website_crawler.spiders.scraper import run_spider
 from instagram_content_getter.get_posts import get_posts
-
+from text_file_processor.TextFileProcessor import TextFileProcessor
 from instragram_scraper.InstagramScraper import InstagramScraper
 
 # Open-AI key
-#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
+open_ai_key = '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'
+db_path = 'chroma_db'
 
 from dotenv import load_dotenv
 import os
@@ -67,6 +68,18 @@ def scrape():
 
             with ThreadPoolExecutor(max_workers=1) as executor:
                 executor.submit(run_scraper)
+
+            def run_text_file_processor():
+                with app.app_context():
+                    try:
+                        TextFileProcessor(db_path,open_ai_key, task.id).process_text_files()
+                    except Exception as e:
+                        print(f"Error while starting text file processor: {e}")
+
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                executor.submit(run_text_file_processor)
+            
+
                 
             return jsonify({'message': f'Scraping started for URLs: {urls_to_scrape}', 'task_name': task.task_name}), 200
         except Exception as e:
