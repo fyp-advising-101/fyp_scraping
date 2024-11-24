@@ -7,14 +7,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# access_token = EAAMP7plW2yMBO7eFc3VMgi9awrZB1gI6OV8AuzDS2ir1UW5GWjutCiqbEfj7iVBmxPY8ug4CMCv8TeyOSFZA1Av3Q4ZC25P6qg1ZBeNiZB6QGvxYLoW3EpMTJSsDZB7g1zdxTo5TmOwzSb1FYabwDyFpu8z0dTBZAZAcZATpKj9ktEiHqb1PnxIZC4ZClPSXZAk3O1MM
+access_token = 'EAAMP7plW2yMBO7eFc3VMgi9awrZB1gI6OV8AuzDS2ir1UW5GWjutCiqbEfj7iVBmxPY8ug4CMCv8TeyOSFZA1Av3Q4ZC25P6qg1ZBeNiZB6QGvxYLoW3EpMTJSsDZB7g1zdxTo5TmOwzSb1FYabwDyFpu8z0dTBZAZAcZATpKj9ktEiHqb1PnxIZC4ZClPSXZAk3O1MM'
 
 class InstagramScraper:
     def __init__(self, user_id, app_id, app_secret):
         self.user_id = user_id
         self.app_id = app_id
         self.app_secret = app_secret
-        self.access_token = self.refresh_access_token()
+        self.access_token = access_token
         self.base_url = f"https://graph.facebook.com/v20.0/{self.user_id}"
         self.fields_1 = "{followers_count,media_count,media"
         self.fields_2 = "{media_url,media_type,children{media_url},timestamp,paging},follows_count}"
