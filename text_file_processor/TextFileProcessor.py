@@ -3,8 +3,11 @@ import os
 from chroma_db_manager.ChromaDbManager import ChromaDBManager
 from database.database import db
 from models.jobScheduler import JobScheduler
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.schema import Document
 
 output_folder_name = "scraper_output"
+db_path = "aub_embeddings"
 
 class TextFileProcessor:
     def __init__(self, chroma_db_path, openai_api_key, job_id):
@@ -32,6 +35,33 @@ class TextFileProcessor:
                 file_path = os.path.join(output_folder_name, file)
                 print(f"Processing file: {file_path}")
                 # Simulate file processing
+                # Assuming a cleaned up file
+
+                manager = ChromaDBManager(db_path=db_path, openai_api_key=openai.api_key)
+
+                try:
+                    with open(file_path, 'r') as f: 
+                        content = f.read()
+                    text_splitter = RecursiveCharacterTextSplitter( # Params probably need adjustment
+                        chunk_size = 100,
+                        chunk_overlap  = 20,
+                        length_function = len,
+                        is_separator_regex = False,
+                    )
+                    document = Document(page_content=content, metadata={"source": "example_source"})
+                    data = text_splitter.split_documents([document])
+                    
+                    collection_name = "aub_embeddings"
+                    for index, item in enumerate(data):
+                        entry_id = f"{file_path}-{index}"
+                        text = item # Document object
+                        manager.add_or_update_entry(collection_name, entry_id, text)
+
+                except FileNotFoundError:
+                    print(f"File not found: {file_path}")
+                except Exception as e:
+                    print(f"An error occurred: {e}")
+
                 os.remove(file_path)  # Remove the file after processing
                 print(f"File processed and removed: {file_path}")
 

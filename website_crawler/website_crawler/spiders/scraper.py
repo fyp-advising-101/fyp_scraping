@@ -23,8 +23,8 @@ class DynamicTextSpider(Spider):
     name = 'dynamic_text_spider'
     def __init__(self, start_urls, job_id ,*args, **kwargs):
         super(DynamicTextSpider, self).__init__(*args, **kwargs)
-        #self.start_urls = start_urls
-        self.start_urls = ['https://www.aub.edu.lb/registrar/Documents/catalogue/undergraduate22-23/ece.pdf']
+        self.start_urls = start_urls
+        #self.start_urls = ['https://www.aub.edu.lb/registrar/Documents/catalogue/undergraduate22-23/ece.pdf']
         self.job_id = job_id
         self.visited_urls = set()
 

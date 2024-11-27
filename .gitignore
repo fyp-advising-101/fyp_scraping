@@ -7,3 +7,4 @@ instance
 .env
 pics/*
 !pics/file.txt
+querychroma.py

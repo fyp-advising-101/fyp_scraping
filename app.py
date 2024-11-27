@@ -8,8 +8,6 @@ from instagram_content_getter.get_posts import get_posts
 from text_file_processor.TextFileProcessor import TextFileProcessor
 from instragram_scraper.InstagramScraper import InstagramScraper
 
-# Open-AI key
-open_ai_key = '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'
 db_path = 'chroma_db'
 
 from dotenv import load_dotenv
@@ -23,6 +21,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = DB_CONFIG
 db.init_app(app)
 
 load_dotenv()
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 INSTAGRAM_USER_ID = os.getenv("INSTAGRAM_USER_ID")
 APP_SECRET = os.getenv("APP_SECRET")
 APP_ID = os.getenv("APP_ID")
@@ -72,7 +71,7 @@ def scrape():
             def run_text_file_processor():
                 with app.app_context():
                     try:
-                        TextFileProcessor(db_path,open_ai_key, task.id).process_text_files()
+                        TextFileProcessor(db_path, OPENAI_API_KEY, task.id).process_text_files()
                     except Exception as e:
                         print(f"Error while starting text file processor: {e}")
 
@@ -86,6 +85,7 @@ def scrape():
             print(f'Error while scraping websites: {e}')
             db.session.rollback()
             return jsonify({'message': f'Error while scrapping websites: {e}'}), 200
+    
         
 @app.route("/instagram_scrape", methods = ['GET'])
 def instagram_scrape():
