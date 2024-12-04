@@ -8,3 +8,4 @@ instance
 pics/*
 !pics/file.txt
 querychroma.py
+cliptest.py

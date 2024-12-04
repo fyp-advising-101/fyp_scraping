@@ -96,24 +96,32 @@ def instagram_scrape():
         if not accounts_to_scrape:
             return jsonify({'error': 'No accounts to get posts from found in the database.'}), 404
         
-        #Commented Out for testing..
 
-        # today = datetime.date.today()
-        # task : JobScheduler = JobScheduler.query.filter_by(task_name='Get Instagram Content').filter(
-        #     db.func.date(JobScheduler.scheduled_date) == today).first()
+        today = datetime.date.today()
+        task : JobScheduler = JobScheduler.query.filter_by(task_name='Get Instagram Content').filter(
+            db.func.date(JobScheduler.scheduled_date) == today).first()
     
-        # if task:
-        #         # Update the status to 'running'
-        #         task.status = 'Running'
-        #         db.session.commit()
-        #         job_id = task.id
-        # else:
-        #     return jsonify({'error': 'No instagram content fetching task scheduled'}), 404
+        if task:
+                # Update the status to 'running'
+                task.status = 'Running'
+                db.session.commit()
+                job_id = task.id
+        else:
+            return jsonify({'error': 'No instagram content fetching task scheduled'}), 404
 
         
-        #get_posts(target_accounts)
         instagram_scraper = InstagramScraper(INSTAGRAM_USER_ID, APP_ID, APP_SECRET)
         instagram_scraper.get_posts(accounts_to_scrape)
+
+        def run_image_file_processor():
+                with app.app_context():
+                    try:
+                        TextFileProcessor(db_path, OPENAI_API_KEY, task.id).process_image_files()
+                    except Exception as e:
+                        print(f"Error in image image processing: {e}")
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            executor.submit(run_image_file_processor)
 
         return jsonify({'message': f'Fetching started for Accounts: {accounts_to_scrape}', 'task_name': 'Get Instagram Content'}), 200
         #return jsonify({'message': f'Fetching started for Accounts: {target_accounts}', 'task_name': {task.task_name}}), 200
