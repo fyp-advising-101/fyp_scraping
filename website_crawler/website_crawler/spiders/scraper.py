@@ -16,6 +16,8 @@ from twisted.internet import reactor, defer
 import os
 from models.jobScheduler import JobScheduler
 from database.database import db
+from PyPDF2 import PdfReader  # for extracting text from PDFs
+import requests
 
 output_folder_name = "scraper_output"
 
@@ -57,9 +59,51 @@ class DynamicTextSpider(Spider):
             db.session.commit()
         print("Spider closed: %s", reason)
 
+    def handle_pdf(self, pdf_url):
+        print(f"Processing PDF: {pdf_url}")
+        try:
+            response = requests.get(pdf_url, stream=True)
+            response.raise_for_status()
+
+            # Save the PDF
+            pdf_filename = f'{output_folder_name}/scraped_text_{response.url.replace("https://", "").replace("http://", "").replace("/", "_").replace(":", "")}.pdf'
+
+            with open(pdf_filename, 'wb') as pdf_file:
+                for chunk in response.iter_content(chunk_size=1024):
+                    pdf_file.write(chunk)
+            print(f"Saved PDF to {pdf_filename}")
+
+            # Extract text from the PDF
+            extracted_text = self.extract_text_from_pdf(pdf_filename)
+
+            # Save the extracted text
+            text_filename = pdf_filename.replace('.pdf', '.txt')
+            with open(text_filename, 'w', encoding='utf-8') as text_file:
+                text_file.write(extracted_text)
+            print(f"Saved extracted text to {text_filename}")
+            os.remove(pdf_filename)
+
+        except Exception as e:
+            print(f"Error processing PDF {pdf_url}: {e}")
+
+    @staticmethod
+    def extract_text_from_pdf(pdf_path):
+        try:
+            reader = PdfReader(pdf_path)
+            extracted_text = ""
+            for page in reader.pages:
+                extracted_text += page.extract_text()
+            return extracted_text
+        except Exception as e:
+            print(f"Error extracting text from PDF {pdf_path}: {e}")
+            return ""
+
     def parse(self, response):
         print(f"Processing URL: {response.url}")
-
+        if response.url.endswith('.pdf') or "application/pdf" in response.headers.get('Content-Type', '').decode():
+            self.handle_pdf(response.url)
+            return 
+        
         # Use Selenium to open the URL
         self.driver.get(response.url)
 
@@ -85,7 +129,7 @@ class DynamicTextSpider(Spider):
         full_text = '\n'.join(cleaned_text)
 
         # Save the scraped text
-        filename = f'{output_folder_name}/scraped_text_{response.url.replace("https://", "").replace("http://", "").replace("/", "_")}.txt'
+        filename = f'{output_folder_name}/scraped_text_{response.url.replace("https://", "").replace("http://", "").replace("/", "_").replace(":", "")}.txt'
         with open(filename, 'w', encoding='utf-8') as f:
             f.write(full_text)
         print(f"Saved scraped text to {filename}")

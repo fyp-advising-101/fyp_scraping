@@ -9,3 +9,4 @@ pics/*
 !pics/file.txt
 querychroma.py
 cliptest.py
+aub_embeddings/
