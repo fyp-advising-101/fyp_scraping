@@ -111,7 +111,7 @@ def instagram_scrape():
             return jsonify({'error': 'No instagram content fetching task scheduled'}), 404
 
         
-        instagram_scraper = InstagramScraper(INSTAGRAM_USER_ID, APP_ID, APP_SECRET)
+        instagram_scraper = InstagramScraper(INSTAGRAM_USER_ID, APP_ID, APP_SECRET, AZURE_BLOB_CONNECTION_STRING)
         instagram_scraper.get_posts(accounts_to_scrape)
 
         def run_image_file_processor():

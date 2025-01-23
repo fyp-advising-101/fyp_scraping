@@ -4,13 +4,16 @@ import requests
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
+from azure.storage.blob import BlobServiceClient
+from azure.core.exceptions import ResourceExistsError
 
 load_dotenv()
 
 access_token = 'EAAMP7plW2yMBO7eFc3VMgi9awrZB1gI6OV8AuzDS2ir1UW5GWjutCiqbEfj7iVBmxPY8ug4CMCv8TeyOSFZA1Av3Q4ZC25P6qg1ZBeNiZB6QGvxYLoW3EpMTJSsDZB7g1zdxTo5TmOwzSb1FYabwDyFpu8z0dTBZAZAcZATpKj9ktEiHqb1PnxIZC4ZClPSXZAk3O1MM'
+container_name = "instagram-scraper-output"
 
 class InstagramScraper:
-    def __init__(self, user_id, app_id, app_secret):
+    def __init__(self, user_id, app_id, app_secret, connection_string):
         self.user_id = user_id
         self.app_id = app_id
         self.app_secret = app_secret
@@ -19,6 +22,7 @@ class InstagramScraper:
         self.fields_1 = "{followers_count,media_count,media"
         self.fields_2 = "{media_url,media_type,children{media_url},timestamp,paging},follows_count}"
         self.output_dir = "pics"
+        self.blob_service_client = BlobServiceClient.from_connection_string(connection_string)
         os.makedirs(self.output_dir, exist_ok=True)
 
     def short_to_long_lived_token(self, access_token):
@@ -56,15 +60,30 @@ class InstagramScraper:
             print(f"Error refreshing token: {response.status_code}, {response.text}")
             return None
 
-    def download_image(self, url, file_path):
+    def store_image(self, url, local_file_path, filename):
         """Download an image from a given URL and save it locally."""
         response = requests.get(url)
         if response.status_code == 200:
-            with open(file_path, 'wb') as f:
+            with open(local_file_path, 'wb') as f:
                 f.write(response.content)
-            print(f"Image saved: {file_path}")
+            print(f"Image saved locally: {local_file_path}")
         else:
             print(f"Failed to download image from {url}")
+
+        blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=filename)
+        try:
+            with open(local_file_path, "rb") as file:
+                blob_client.upload_blob(file, overwrite=False)
+
+            print(f"Uploaded to Azure Blob storage: {url}")
+        
+        except ResourceExistsError:
+            return 0
+        except Exception as e:
+            print(f"failed to upload to Azure Blob storage: {url}")
+            print(f"Reason: {e}")
+        os.remove(local_file_path)
+        return 1
 
     def fetch_images_from_page(self, data, username):
         """Process a page of data and fetch images."""
@@ -76,24 +95,27 @@ class InstagramScraper:
                     return 0
 
                 media_type = post.get('media_type')
+                if media_type == "VIDEO":
+                    continue
+                
                 if media_type == "CAROUSEL_ALBUM":
                     for carousel_child in post.get("children", {}).get("data", []):
                         url = carousel_child.get("media_url")
                         child_id = carousel_child.get("id")
                         post_id = post.get('id')
+                        filename = f"{username}_{post_id}_{child_id}.jpg"
                         file_path = os.path.join(self.output_dir, f"{username}_{post_id}_{child_id}.jpg")
-                        if os.path.isfile(file_path):
+                        if not self.store_image(url, file_path, filename):
                             print("All up to date")
                             return 0
-                        self.download_image(url, file_path)
                 else:
                     url = post.get("media_url")
                     post_id = post.get("id")
+                    filename = f"{username}_{post_id}.jpg"
                     file_path = os.path.join(self.output_dir, f"{username}_{post_id}.jpg")
-                    if os.path.isfile(file_path):
+                    if not self.store_image(url, file_path, filename):
                         print("All up to date")
                         return 0
-                    self.download_image(url, file_path)
             return 1
         except Exception as e:
             print(f"Unexpected error in fetch_images_from_page: {e}")
