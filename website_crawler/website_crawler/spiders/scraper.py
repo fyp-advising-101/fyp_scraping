@@ -18,16 +18,19 @@ from models.jobScheduler import JobScheduler
 from database.database import db
 from PyPDF2 import PdfReader  # for extracting text from PDFs
 import requests
+from azure.storage.blob import BlobServiceClient
 
 output_folder_name = "scraper_output"
+container_name = "web-scraper-output"
 
 class DynamicTextSpider(Spider):
     name = 'dynamic_text_spider'
-    def __init__(self, start_urls, job_id ,*args, **kwargs):
+    def __init__(self, start_urls, job_id, connection_string ,*args, **kwargs):
         super(DynamicTextSpider, self).__init__(*args, **kwargs)
         self.start_urls = start_urls
         #self.start_urls = ['https://www.aub.edu.lb/registrar/Documents/catalogue/undergraduate22-23/ece.pdf']
         self.job_id = job_id
+        self.blob_service_client = BlobServiceClient.from_connection_string(connection_string)
         self.visited_urls = set()
 
         os.makedirs(output_folder_name, exist_ok=True)
@@ -64,9 +67,9 @@ class DynamicTextSpider(Spider):
         try:
             response = requests.get(pdf_url, stream=True)
             response.raise_for_status()
-
+            filename = f'{response.url.replace("https://", "").replace("http://", "").replace("/", "_").replace(":", "")}'
             # Save the PDF
-            pdf_filename = f'{output_folder_name}/scraped_text_{response.url.replace("https://", "").replace("http://", "").replace("/", "_").replace(":", "")}.pdf'
+            pdf_filename = f'{output_folder_name}/scraped_text_{filename}.pdf'
 
             with open(pdf_filename, 'wb') as pdf_file:
                 for chunk in response.iter_content(chunk_size=1024):
@@ -77,11 +80,20 @@ class DynamicTextSpider(Spider):
             extracted_text = self.extract_text_from_pdf(pdf_filename)
 
             # Save the extracted text
-            text_filename = pdf_filename.replace('.pdf', '.txt')
-            with open(text_filename, 'w', encoding='utf-8') as text_file:
+            local_filename = f'{output_folder_name}/scraped_text_{filename}.txt'
+            with open(local_filename, 'w', encoding='utf-8') as text_file:
                 text_file.write(extracted_text)
-            print(f"Saved extracted text to {text_filename}")
+
+            print(f"Saved extracted text to {local_filename}")
+            #Save to Azure Blob storage
+            blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=f'{filename}.txt')
+            with open(local_filename, "rb") as file:
+                blob_client.upload_blob(file, overwrite=True)
+
+            print(f"Saved extracted text to Azure Blob storage, file name: {filename}.txt")
+            # Delete local copies
             os.remove(pdf_filename)
+            os.remove(local_filename)
 
         except Exception as e:
             print(f"Error processing PDF {pdf_url}: {e}")
@@ -129,11 +141,19 @@ class DynamicTextSpider(Spider):
         full_text = '\n'.join(cleaned_text)
 
         # Save the scraped text
-        filename = f'{output_folder_name}/scraped_text_{response.url.replace("https://", "").replace("http://", "").replace("/", "_").replace(":", "")}.txt'
-        with open(filename, 'w', encoding='utf-8') as f:
+        filename = f'{response.url.replace("https://", "").replace("http://", "").replace("/", "_").replace(":", "")}.txt'
+        local_filename = f'{output_folder_name}/scraped_text_{filename}'
+        with open(local_filename, 'w', encoding='utf-8') as f:
             f.write(full_text)
-        print(f"Saved scraped text to {filename}")
+        
+        print(f"Saved scraped text to {local_filename}")
+        # Upload to Azure blob storage
+        blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=filename)
+        with open(local_filename, "rb") as file:
+            blob_client.upload_blob(file, overwrite=True)
 
+        # Delete local copy
+        os.remove(local_filename)
         for next_page in selenium_response.css('a::attr(href)').getall():
             if next_page:
                 next_page = response.urljoin(next_page)
@@ -142,11 +162,11 @@ class DynamicTextSpider(Spider):
                     yield scrapy.Request(next_page, callback=self.parse)
 
 # Function to run the spider
-def run_spider(start_urls, job_id):
+def run_spider(start_urls, job_id, azure_blob_connection_string):
     try:
 
         process : CrawlerProcess = CrawlerProcess(get_project_settings())
-        process.crawl(DynamicTextSpider, start_urls=start_urls, job_id = job_id)
+        process.crawl(DynamicTextSpider, start_urls=start_urls, job_id = job_id, connection_string = azure_blob_connection_string)
         process.start()  
 
     except Exception as e:

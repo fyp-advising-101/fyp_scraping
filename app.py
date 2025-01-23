@@ -25,6 +25,7 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 INSTAGRAM_USER_ID = os.getenv("INSTAGRAM_USER_ID")
 APP_SECRET = os.getenv("APP_SECRET")
 APP_ID = os.getenv("APP_ID")
+AZURE_BLOB_CONNECTION_STRING = os.getenv("AZURE_BLOB_CONNECTION_STRING")
 debug = os.getenv("DEBUG", "False")  
 
 
@@ -61,7 +62,7 @@ def scrape():
             def run_scraper():
                 with app.app_context():
                     try:
-                        run_spider(urls_to_scrape, task.id)
+                        run_spider(urls_to_scrape, task.id, AZURE_BLOB_CONNECTION_STRING)
                     except Exception as e:
                         print(f"Error while starting spider: {e}")
 
