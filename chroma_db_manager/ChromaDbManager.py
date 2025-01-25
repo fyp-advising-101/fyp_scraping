@@ -73,7 +73,7 @@ class ChromaDBManager:
         }
 
         response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
-        print(response.json())
+        #print(response.json())
         text = response.json()['choices'][0]['message']['content']
 
         embedding = self.generate_embedding(text)

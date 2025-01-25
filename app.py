@@ -72,7 +72,7 @@ def scrape():
             def run_text_file_processor():
                 with app.app_context():
                     try:
-                        TextFileProcessor(db_path, OPENAI_API_KEY, task.id).process_text_files()
+                        TextFileProcessor(db_path, OPENAI_API_KEY, task.id, AZURE_BLOB_CONNECTION_STRING).process_text_files()
                     except Exception as e:
                         print(f"Error while starting text file processor: {e}")
 
@@ -110,14 +110,14 @@ def instagram_scrape():
         else:
             return jsonify({'error': 'No instagram content fetching task scheduled'}), 404
 
-        
-        instagram_scraper = InstagramScraper(INSTAGRAM_USER_ID, APP_ID, APP_SECRET, AZURE_BLOB_CONNECTION_STRING)
-        instagram_scraper.get_posts(accounts_to_scrape)
+        # REMOVE COMMENTS
+        # instagram_scraper = InstagramScraper(INSTAGRAM_USER_ID, APP_ID, APP_SECRET, AZURE_BLOB_CONNECTION_STRING)
+        # instagram_scraper.get_posts(accounts_to_scrape)
 
         def run_image_file_processor():
                 with app.app_context():
                     try:
-                        TextFileProcessor(db_path, OPENAI_API_KEY, task.id).process_image_files()
+                        TextFileProcessor(db_path, OPENAI_API_KEY, task.id, AZURE_BLOB_CONNECTION_STRING).process_image_files()
                     except Exception as e:
                         print(f"Error in image image processing: {e}")
 
