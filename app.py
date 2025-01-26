@@ -16,8 +16,10 @@ import os
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-DB_CONFIG = "sqlite:///database.db"
-app.config["SQLALCHEMY_DATABASE_URI"] = DB_CONFIG
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
+    'SQLALCHEMY_DATABASE_URI',
+    'mysql+pymysql://root:rootpassword@localhost:3307/database'  # Default for local testing
+)
 db.init_app(app)
 
 load_dotenv()
@@ -32,7 +34,6 @@ debug = os.getenv("DEBUG", "False")
 with app.app_context():
     from models.jobScheduler import JobScheduler
     from models.scrapeTarget import ScrapeTarget
-    from models.instagramTarget import InstagramTarget
 
     if app.config["SQLALCHEMY_DATABASE_URI"]:
         db.create_all()

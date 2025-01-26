@@ -154,6 +154,7 @@ class DynamicTextSpider(Spider):
 
         # Delete local copy
         os.remove(local_filename)
+        return # REMOVE
         for next_page in selenium_response.css('a::attr(href)').getall():
             if next_page:
                 next_page = response.urljoin(next_page)

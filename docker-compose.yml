@@ -1,9 +1,12 @@
 services:
   vectordb:
     image: ghcr.io/chroma-core/chroma:0.5.0  # Image tag: https://github.com/chroma-core/chroma/releases
-    # image: ghcr.io/chroma-core/chroma:0.5.3
     build: ./
     container_name: chroma_docker
+    environment:
+      - SQLALCHEMY_DATABASE_URI=mysql+pymysql://root:rootpassword@mysql-container:3306/database
+    networks:
+      - my_network
     ports:
       - 8800:8000
     env_file:
@@ -11,3 +14,45 @@ services:
     volumes:
       - ./my_db:/chroma/my_db
       - ./my_config:/chroma/my_config
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql-container
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: database
+    networks:
+      - my_network
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  scraper:
+    build:
+      context: ./
+    container_name: scraper
+    environment:
+      
+      - SQLALCHEMY_DATABASE_URI=mysql+pymysql://root:rootpassword@mysql-container:3306/database
+    networks:
+      - my_network
+    ports:
+      - "3001:3001"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    
+networks:
+  my_network:
+    driver: bridge
+
+volumes:
+  mysql_data:
