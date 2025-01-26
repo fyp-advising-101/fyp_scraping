@@ -1,5 +1,5 @@
 import openai
-from chromadb import PersistentClient
+from chromadb import HttpClient
 from chromadb.config import Settings
 import os
 import base64
@@ -7,7 +7,7 @@ import requests
 
 class ChromaDBManager:
     def __init__(self, db_path, openai_api_key):
-        self.client = PersistentClient(path=db_path)
+        self.client = HttpClient(host='localhost', port=8800)
         openai.api_key = openai_api_key
 
     def get_or_create_collection(self, collection_name):

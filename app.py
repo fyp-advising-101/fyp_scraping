@@ -65,7 +65,7 @@ def scrape():
                         run_spider(urls_to_scrape, task.id, AZURE_BLOB_CONNECTION_STRING)
                     except Exception as e:
                         print(f"Error while starting spider: {e}")
-
+    
             with ThreadPoolExecutor(max_workers=1) as executor:
                 executor.submit(run_scraper)
 
@@ -110,9 +110,9 @@ def instagram_scrape():
         else:
             return jsonify({'error': 'No instagram content fetching task scheduled'}), 404
 
-        # REMOVE COMMENTS
-        # instagram_scraper = InstagramScraper(INSTAGRAM_USER_ID, APP_ID, APP_SECRET, AZURE_BLOB_CONNECTION_STRING)
-        # instagram_scraper.get_posts(accounts_to_scrape)
+
+        instagram_scraper = InstagramScraper(INSTAGRAM_USER_ID, APP_ID, APP_SECRET, AZURE_BLOB_CONNECTION_STRING)
+        instagram_scraper.get_posts(accounts_to_scrape)
 
         def run_image_file_processor():
                 with app.app_context():
