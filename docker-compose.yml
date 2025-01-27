@@ -1,10 +1,13 @@
+version: '3'
+
 services:
   vectordb:
     image: ghcr.io/chroma-core/chroma:0.5.0  # Image tag: https://github.com/chroma-core/chroma/releases
     build: ./
     container_name: chroma_docker
     environment:
-      - SQLALCHEMY_DATABASE_URI=mysql+pymysql://root:rootpassword@mysql-container:3306/database
+      #- SQLALCHEMY_DATABASE_URI=mysql+pymysql://root:rootpassword@mysql-container:3306/database
+      - SQLALCHEMY_DATABASE_URI=mysql+pymysql://user:hello123@mysql-container:3306/fyp_db
     networks:
       - my_network
     ports:
@@ -22,8 +25,10 @@ services:
     image: mysql:8.0
     container_name: mysql-container
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: database
+      # MYSQL_ROOT_PASSWORD: rootpassword
+      # MYSQL_DATABASE: database
+      MYSQL_ROOT_PASSWORD: hello123
+      MYSQL_DATABASE: fyp_db
     networks:
       - my_network
     ports:
@@ -40,8 +45,8 @@ services:
       context: ./
     container_name: scraper
     environment:
-      
-      - SQLALCHEMY_DATABASE_URI=mysql+pymysql://root:rootpassword@mysql-container:3306/database
+     # - SQLALCHEMY_DATABASE_URI=mysql+pymysql://root:rootpassword@mysql-container:3306/database
+     - SQLALCHEMY_DATABASE_URI=mysql+pymysql://user:hello123@mysql-container:3306/fyp_db
     networks:
       - my_network
     ports:
@@ -49,7 +54,20 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-    
+
+  selenium:
+    image: selenium/standalone-chrome:latest
+    container_name: selenium-standalone-chrome
+    ports:
+      - "4444:4444"  # Expose Selenium's default port for remote connection
+    networks:
+      - my_network
+    environment:
+      - SE_NODE_MAX_SESSION=5  # Optional: You can set the maximum number of sessions
+    volumes:
+      - /dev/shm:/dev/shm  # To avoid shared memory issues with Chrome
+    platform: linux/amd64
+
 networks:
   my_network:
     driver: bridge

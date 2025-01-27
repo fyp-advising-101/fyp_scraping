@@ -18,7 +18,8 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
     'SQLALCHEMY_DATABASE_URI',
-    'mysql+pymysql://root:rootpassword@localhost:3307/database'  # Default for local testing
+    'mysql+pymysql://user:hello123@localhost:3306/fyp_db'
+    #'mysql+pymysql://root:rootpassword@localhost:3307/database'  # Default for local testing
 )
 db.init_app(app)
 

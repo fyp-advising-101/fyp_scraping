@@ -15,6 +15,9 @@ COPY . .
 # Expose port 5001
 EXPOSE 3001
 
+ENV DATABASE_URL=mysql+pymysql://user:hello123@docker.for.mac.host.internal:3306/fyp_db
+
+
 # Command to run the application
 CMD ["python3", "app.py"]
 

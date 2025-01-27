@@ -22,6 +22,7 @@ from azure.storage.blob import BlobServiceClient
 
 output_folder_name = "scraper_output"
 container_name = "web-scraper-output"
+standalone_chrome_url= 'http://selenium:4444/wd/hub'
 
 class DynamicTextSpider(Spider):
     name = 'dynamic_text_spider'
@@ -39,16 +40,17 @@ class DynamicTextSpider(Spider):
         options.add_argument("--headless") 
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
-        # options.add_argument('--ignore-ssl-errors=yes')
-        # options.add_argument('--ignore-certificate-errors') 
-        self.driver = webdriver.Chrome(
-            service=Service(ChromeDriverManager().install()),
-            options=options
-        )
-        # driver = webdriver.Remote(
-        #     command_executor=standalone_chrome_url,
+        # comment when testing
+        options.add_argument('--ignore-ssl-errors=yes')
+        options.add_argument('--ignore-certificate-errors') 
+        # self.driver = webdriver.Chrome(
+        #     service=Service(ChromeDriverManager().install()),
         #     options=options
         # )
+        driver = webdriver.Remote(
+            command_executor=standalone_chrome_url,
+            options=options
+        )
 
     def closed(self, reason):     
         """Close the Selenium WebDriver when spider is closed."""
