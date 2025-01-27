@@ -19,6 +19,16 @@ from database.database import db
 from PyPDF2 import PdfReader  # for extracting text from PDFs
 import requests
 from azure.storage.blob import BlobServiceClient
+import logging
+
+# Configure the logging
+logging.basicConfig(
+    level=logging.DEBUG,  # Set the logging level
+    format="%(asctime)s - %(levelname)s - %(message)s",  # Define the log message format
+    datefmt="%Y-%m-%d %H:%M:%S",  # Define the date format
+    filename="app.log",  # Specify a file to write logs to
+    filemode="a",  # Append to the file (default is 'a')
+)
 
 output_folder_name = "scraper_output"
 container_name = "web-scraper-output"
@@ -47,7 +57,7 @@ class DynamicTextSpider(Spider):
         #     service=Service(ChromeDriverManager().install()),
         #     options=options
         # )
-        driver = webdriver.Remote(
+        self.driver = webdriver.Remote(
             command_executor=standalone_chrome_url,
             options=options
         )
@@ -113,7 +123,7 @@ class DynamicTextSpider(Spider):
             return ""
 
     def parse(self, response):
-        print(f"Processing URL: {response.url}")
+        logging.info(f"Processing URL: {response.url}")
         if response.url.endswith('.pdf') or "application/pdf" in response.headers.get('Content-Type', '').decode():
             self.handle_pdf(response.url)
             return 
@@ -128,7 +138,7 @@ class DynamicTextSpider(Spider):
             )
 
         except Exception as e:
-            print(f"Error loading page {response.url}: {e}")
+            logging.error(f"Error loading page {response.url}: {e}")
             return
 
         # Get the rendered HTML
@@ -148,7 +158,7 @@ class DynamicTextSpider(Spider):
         with open(local_filename, 'w', encoding='utf-8') as f:
             f.write(full_text)
         
-        print(f"Saved scraped text to {local_filename}")
+        logging.info(f"Saved scraped text to {local_filename}")
         # Upload to Azure blob storage
         blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=filename)
         with open(local_filename, "rb") as file:

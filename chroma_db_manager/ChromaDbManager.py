@@ -1,13 +1,25 @@
 import openai
 from chromadb import HttpClient
-from chromadb.config import Settings
 import os
 import base64
 import requests
 
 class ChromaDBManager:
     def __init__(self, db_path, openai_api_key):
-        self.client = HttpClient(host='localhost', port=8800)
+        # settings = Settings(
+        #     chroma_server_host="127.0.0.1", ### CHANGE When deploying
+        #     chroma_server_http_port=8000,
+        #     )
+        # admin_client = AdminClient(settings=settings)
+        # try:
+        #     admin_client.get_tenant(name=db_path)
+        # except Exception as e: # Here I tried to use the 
+        #                         # chromadb.errors.NotFoundError, but was not 
+        #                         # working althought the exception raised was based
+        #                         # on this type
+        #     admin_client.create_tenant(name=db_path)
+        #     admin_client.create_database(name=db_path, tenant=db_path)
+        self.client = HttpClient(host='127.0.0.1:8000')
         openai.api_key = openai_api_key
 
     def get_or_create_collection(self, collection_name):

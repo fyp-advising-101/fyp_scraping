@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   vectordb:
     image: ghcr.io/chroma-core/chroma:0.5.0  # Image tag: https://github.com/chroma-core/chroma/releases
@@ -11,7 +9,7 @@ services:
     networks:
       - my_network
     ports:
-      - 8800:8000
+      - 8000:8000
     env_file:
       - ./.env
     volumes:
@@ -25,8 +23,6 @@ services:
     image: mysql:8.0
     container_name: mysql-container
     environment:
-      # MYSQL_ROOT_PASSWORD: rootpassword
-      # MYSQL_DATABASE: database
       MYSQL_ROOT_PASSWORD: hello123
       MYSQL_DATABASE: fyp_db
     networks:
@@ -46,7 +42,8 @@ services:
     container_name: scraper
     environment:
      # - SQLALCHEMY_DATABASE_URI=mysql+pymysql://root:rootpassword@mysql-container:3306/database
-     - SQLALCHEMY_DATABASE_URI=mysql+pymysql://user:hello123@mysql-container:3306/fyp_db
+      
+      - SQLALCHEMY_DATABASE_URI=mysql+pymysql://user:hello123@mysql-container:3306/fyp_db
     networks:
       - my_network
     ports:

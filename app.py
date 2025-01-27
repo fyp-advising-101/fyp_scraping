@@ -12,6 +12,16 @@ db_path = 'chroma_db'
 
 from dotenv import load_dotenv
 import os
+import logging
+
+# Configure the logging
+logging.basicConfig(
+    level=logging.DEBUG,  # Set the logging level
+    format="%(asctime)s - %(levelname)s - %(message)s",  # Define the log message format
+    datefmt="%Y-%m-%d %H:%M:%S",  # Define the date format
+    filename="app.log",  # Specify a file to write logs to
+    filemode="a",  # Append to the file (default is 'a')
+)
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -66,7 +76,7 @@ def scrape():
                     try:
                         run_spider(urls_to_scrape, task.id, AZURE_BLOB_CONNECTION_STRING)
                     except Exception as e:
-                        print(f"Error while starting spider: {e}")
+                        logging.error(f"Error while starting spider: {e}")
     
             with ThreadPoolExecutor(max_workers=1) as executor:
                 executor.submit(run_scraper)
@@ -76,7 +86,7 @@ def scrape():
                     try:
                         TextFileProcessor(db_path, OPENAI_API_KEY, task.id, AZURE_BLOB_CONNECTION_STRING).process_text_files()
                     except Exception as e:
-                        print(f"Error while starting text file processor: {e}")
+                        logging.error(f"Error while starting text file processor: {e}")
 
             with ThreadPoolExecutor(max_workers=1) as executor:
                 executor.submit(run_text_file_processor)
@@ -85,7 +95,7 @@ def scrape():
                 
             return jsonify({'message': f'Scraping started for URLs: {urls_to_scrape}', 'task_name': task.task_name}), 200
         except Exception as e:
-            print(f'Error while scraping websites: {e}')
+            logging.error(f'Error while scraping websites: {e}')
             db.session.rollback()
             return jsonify({'message': f'Error while scrapping websites: {e}'}), 200
     
@@ -121,7 +131,7 @@ def instagram_scrape():
                     try:
                         TextFileProcessor(db_path, OPENAI_API_KEY, task.id, AZURE_BLOB_CONNECTION_STRING).process_image_files()
                     except Exception as e:
-                        print(f"Error in image image processing: {e}")
+                        logging.error(f"Error in image image processing: {e}")
 
         with ThreadPoolExecutor(max_workers=1) as executor:
             executor.submit(run_image_file_processor)
@@ -129,7 +139,7 @@ def instagram_scrape():
         return jsonify({'message': f'Fetching started for Accounts: {accounts_to_scrape}', 'task_name': 'Get Instagram Content'}), 200
         #return jsonify({'message': f'Fetching started for Accounts: {target_accounts}', 'task_name': {task.task_name}}), 200
     except Exception as e:
-        print(f'Error while scraping websites: {e}')
+        logging.error(f'Error while scraping websites: {e}')
         db.session.rollback()
         return jsonify({'message': f'Error while scrapping websites: {e}'}), 200
 
