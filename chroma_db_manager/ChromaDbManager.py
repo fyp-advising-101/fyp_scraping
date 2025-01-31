@@ -15,25 +15,11 @@ logging.basicConfig(
 
 class ChromaDBManager:
     def __init__(self, db_path, openai_api_key):
-        # settings = Settings(
-        #     chroma_server_host="127.0.0.1", ### CHANGE When deploying
-        #     chroma_server_http_port=3005,
-        #     )
-        # admin_client = AdminClient(settings=settings)
-        # try:
-        #     admin_client.get_tenant(name=db_path)
-        # except Exception as e: # Here I tried to use the 
-        #                         # chromadb.errors.NotFoundError, but was not 
-        #                         # working althought the exception raised was based
-        #                         # on this type
-        #     admin_client.create_tenant(name=db_path)
-        #     admin_client.create_database(name=db_path, tenant=db_path)
         self.client = HttpClient(host='vectordb', port=8000)
         openai.api_key = openai_api_key
 
     def get_or_create_collection(self, collection_name):
         """Get or create a Chroma DB collection."""
-        logging.info("Fetching collection", collection_name)
         return self.client.get_or_create_collection(name=collection_name)
 
     def generate_embedding(self, text):
@@ -96,7 +82,6 @@ class ChromaDBManager:
         }
 
         response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
-        #print(response.json())
         text = response.json()['choices'][0]['message']['content']
 
         embedding = self.generate_embedding(text)
@@ -115,6 +100,4 @@ class ChromaDBManager:
             metadatas=[{"info": "default"}]
         )
         logging.info(f"Entry with ID '{entry_id}' added/updated successfully!")
-    # def persist(self):
-    #     """Persist the database to ensure data is saved."""
-    #     self.client.persist()
+

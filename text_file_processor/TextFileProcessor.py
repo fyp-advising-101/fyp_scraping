@@ -77,9 +77,9 @@ class TextFileProcessor:
                             manager.add_or_update_text_entry(collection_name, entry_id, text)
 
                     except FileNotFoundError:
-                        logging.info(f"File not found: {file}")
+                        logging.error(f"File not found: {file}")
                     except Exception as e:
-                        logging.info(f"An error occurred: {e}")
+                        logging.error(f"An error occurred: {e}")
 
                     logging.info(f"File processed: {file}")
 
@@ -125,7 +125,7 @@ class TextFileProcessor:
                         manager.add_or_update_image_entry(collection_name, entry_id, local_file_path)
                         os.remove(local_file_path)
                     except Exception as e:
-                        logging.info(f"An error occurred in image embeddings generation: {e}")
+                        logging.error(f"An error occurred in image embeddings generation: {e}")
 
                 
             break ##### REMOVE

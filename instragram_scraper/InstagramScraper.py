@@ -6,6 +6,15 @@ from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient
 from azure.core.exceptions import ResourceExistsError
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG,  # Set the logging level
+    format="%(asctime)s - %(levelname)s - %(message)s",  # Define the log message format
+    datefmt="%Y-%m-%d %H:%M:%S",  # Define the date format
+    filename="app.log",  # Specify a file to write logs to
+    filemode="a",  # Append to the file (default is 'a')
+)
 
 load_dotenv()
 
@@ -36,10 +45,10 @@ class InstagramScraper:
         response = requests.get(url, params=params)
         if response.status_code == 200:
             long_lived_token = response.json().get('access_token')
-            print(f"New token expires in {response.json().get('expires_in')} seconds.")
+            logging.info(f"New token expires in {response.json().get('expires_in')} seconds.")
             return long_lived_token
         else:
-            print(f"Error generating long-lived token: {response.status_code}, {response.text}")
+            logging.error(f"Error generating long-lived token: {response.status_code}, {response.text}")
             return None
 
     def refresh_access_token(self):
@@ -54,10 +63,10 @@ class InstagramScraper:
         response = requests.post(url, params=params)
         if response.status_code == 200:
             new_token = response.json().get('access_token')
-            print("Access token refreshed.")
+            logging.info("Access token refreshed.")
             return new_token
         else:
-            print(f"Error refreshing token: {response.status_code}, {response.text}")
+            logging.error(f"Error refreshing token: {response.status_code}, {response.text}")
             return None
 
     def store_image(self, url, local_file_path, filename):
@@ -66,22 +75,22 @@ class InstagramScraper:
         if response.status_code == 200:
             with open(local_file_path, 'wb') as f:
                 f.write(response.content)
-            print(f"Image saved locally: {local_file_path}")
+            logging.info(f"Image saved locally: {local_file_path}")
         else:
-            print(f"Failed to download image from {url}")
+            logging.error(f"Failed to download image from {url}")
 
         blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=filename)
         try:
             with open(local_file_path, "rb") as file:
                 blob_client.upload_blob(file, overwrite=False)
 
-            print(f"Uploaded to Azure Blob storage: {url}")
+            logging.info(f"Uploaded to Azure Blob storage: {url}")
         
         except ResourceExistsError:
             return 0
         except Exception as e:
-            print(f"failed to upload to Azure Blob storage: {url}")
-            print(f"Reason: {e}")
+            logging.error(f"failed to upload to Azure Blob storage: {url}")
+            logging.error(f"Reason: {e}")
         os.remove(local_file_path)
         return 1
 
@@ -91,7 +100,7 @@ class InstagramScraper:
             for post in data.get("business_discovery", {}).get("media", {}).get("data", []):
                 post_timestamp = datetime.strptime(post["timestamp"], "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
                 if post_timestamp < datetime.utcnow() - timedelta(days=15):
-                    print("All posts within 15 days fetched")
+                    logging.info("All posts within 15 days fetched")
                     return 0
 
                 media_type = post.get('media_type')
@@ -106,7 +115,7 @@ class InstagramScraper:
                         filename = f"{username}_{post_id}_{child_id}.jpg"
                         file_path = os.path.join(self.output_dir, f"{username}_{post_id}_{child_id}.jpg")
                         if not self.store_image(url, file_path, filename):
-                            print("All up to date")
+                            logging.info("All up to date")
                             return 0
                 else:
                     url = post.get("media_url")
@@ -114,11 +123,11 @@ class InstagramScraper:
                     filename = f"{username}_{post_id}.jpg"
                     file_path = os.path.join(self.output_dir, f"{username}_{post_id}.jpg")
                     if not self.store_image(url, file_path, filename):
-                        print("All up to date")
+                        logging.info("All up to date")
                         return 0
             return 1
         except Exception as e:
-            print(f"Unexpected error in fetch_images_from_page: {e}")
+            logging.error(f"Unexpected error in fetch_images_from_page: {e}")
 
     def get_user_posts(self, username):
         """Fetch posts for a specific username."""
@@ -144,16 +153,15 @@ class InstagramScraper:
                             data = response.json()
                             if not self.fetch_images_from_page(data, username):
                                 break
-                            print("Fetched from next page")
                         else:
-                            print(f"Error fetching next page: {response.status_code}, {response.text}")
+                            logging.error(f"Error fetching next page: {response.status_code}, {response.text}")
                             break
                 except Exception as e:
-                    print(f"Unexpected error during pagination: {e}")
+                    logging.error(f"Unexpected error during pagination: {e}")
             else:
-                print(f"Error fetching user posts: {response.status_code}, {response.text}")
+                logging.error(f"Error fetching user posts: {response.status_code}, {response.text}")
         except Exception as e:
-            print(f"Unexpected error in get_user_posts: {e}")
+            logging.error(f"Unexpected error in get_user_posts: {e}")
 
     def get_posts(self, usernames):
         """Fetch posts for a list of usernames using multithreading."""

@@ -3,6 +3,15 @@ import os
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG,  # Set the logging level
+    format="%(asctime)s - %(levelname)s - %(message)s",  # Define the log message format
+    datefmt="%Y-%m-%d %H:%M:%S",  # Define the date format
+    filename="app.log",  # Specify a file to write logs to
+    filemode="a",  # Append to the file (default is 'a')
+)
 
 load_dotenv()
 
@@ -13,16 +22,16 @@ def download_image(url, file_path):
     if response.status_code == 200:
         with open(file_path, 'wb') as f:
             f.write(response.content)
-        print(f"Image saved: {file_path}")
+        logging.info(f"Image saved: {file_path}")
     else:
-        print(f"Failed to download image from {url}")
+        logging.error(f"Failed to download image from {url}")
 
 # Because the responses are paginated
 def fetch_images_from_page(data, username):
     for post in data["business_discovery"]["media"]["data"]:
         post_timestamp = datetime.strptime(post["timestamp"], "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
         if post_timestamp < datetime.utcnow() - timedelta(days=30):
-            print("All posts within 30 days fetched")
+            logging.info("All posts within 30 days fetched")
             return 0
         media_type = post['media_type']
         if media_type == "CAROUSEL_ALBUM":
@@ -32,7 +41,7 @@ def fetch_images_from_page(data, username):
                 post_id = post['id']
                 file_path = os.path.join("pics", f"{username}_{post_id}_{child_id}.jpg")
                 if os.path.isfile(file_path):
-                    print("All up to date")
+                    logging.info("All up to date")
                     return 0
                 download_image(url, file_path)
         else:
@@ -40,7 +49,7 @@ def fetch_images_from_page(data, username):
             id = post["id"]
             file_path = os.path.join("pics", f"{username}_{id}.jpg")
             if os.path.isfile(file_path):
-                print("All up to date")
+                logging.info("All up to date")
                 return 0
             download_image(url, file_path)
 
@@ -76,21 +85,19 @@ def get_user_posts(username):
                     response = requests.get(url, params=params)
                     if response.status_code == 200:
                         data = response.json()
-                        print(data)
                         if not fetch_images_from_page(data, username):
                             break
-                        print("fetched from next page")
                     else:
-                        print(f"Error: {response.status_code}, {response.text}")
+                        logging.error(f"Error: {response.status_code}, {response.text}")
             except Exception as e:
-                print(e)
+                logging.error(e)
             
             
         else:
             # Handle errors
-            print(f"Error: {response.status_code}, {response.text}")
+            logging.error(f"Error: {response.status_code}, {response.text}")
     except Exception as e:
-        print(e)
+        logging.error(e)
 
 def get_posts(accounts):
     # Using ThreadPoolExecutor for concurrent execution

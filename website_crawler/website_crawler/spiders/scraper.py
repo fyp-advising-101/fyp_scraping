@@ -64,7 +64,7 @@ class DynamicTextSpider(Spider):
 
     def closed(self, reason):     
         """Close the Selenium WebDriver when spider is closed."""
-        print("Closing")
+        logging.info("Closing")
         if self.driver:
             self.driver.quit()
         job = JobScheduler.query.get(self.job_id)
@@ -72,10 +72,10 @@ class DynamicTextSpider(Spider):
             job.status = "Completed"
             job.error_message = reason
             db.session.commit()
-        print("Spider closed: %s", reason)
+        logging.info("Spider closed: %s", reason)
 
     def handle_pdf(self, pdf_url):
-        print(f"Processing PDF: {pdf_url}")
+        logging.info(f"Processing PDF: {pdf_url}")
         try:
             response = requests.get(pdf_url, stream=True)
             response.raise_for_status()
@@ -86,7 +86,7 @@ class DynamicTextSpider(Spider):
             with open(pdf_filename, 'wb') as pdf_file:
                 for chunk in response.iter_content(chunk_size=1024):
                     pdf_file.write(chunk)
-            print(f"Saved PDF to {pdf_filename}")
+            logging.info(f"Saved PDF to {pdf_filename}")
 
             # Extract text from the PDF
             extracted_text = self.extract_text_from_pdf(pdf_filename)
@@ -96,19 +96,19 @@ class DynamicTextSpider(Spider):
             with open(local_filename, 'w', encoding='utf-8') as text_file:
                 text_file.write(extracted_text)
 
-            print(f"Saved extracted text to {local_filename}")
+            logging.info(f"Saved extracted text to {local_filename}")
             #Save to Azure Blob storage
             blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=f'{filename}.txt')
             with open(local_filename, "rb") as file:
                 blob_client.upload_blob(file, overwrite=True)
 
-            print(f"Saved extracted text to Azure Blob storage, file name: {filename}.txt")
+            logging.info(f"Saved extracted text to Azure Blob storage, file name: {filename}.txt")
             # Delete local copies
             os.remove(pdf_filename)
             os.remove(local_filename)
 
         except Exception as e:
-            print(f"Error processing PDF {pdf_url}: {e}")
+            logging.error(f"Error processing PDF {pdf_url}: {e}")
 
     @staticmethod
     def extract_text_from_pdf(pdf_path):
@@ -119,7 +119,7 @@ class DynamicTextSpider(Spider):
                 extracted_text += page.extract_text()
             return extracted_text
         except Exception as e:
-            print(f"Error extracting text from PDF {pdf_path}: {e}")
+            logging.error(f"Error extracting text from PDF {pdf_path}: {e}")
             return ""
 
     def parse(self, response):
@@ -183,7 +183,7 @@ def run_spider(start_urls, job_id, azure_blob_connection_string):
         process.start()  
 
     except Exception as e:
-        print("Error")
+        logging.error(e)
         job = JobScheduler.query.get(job_id)
         if job:
             job.status = "Terminated"
