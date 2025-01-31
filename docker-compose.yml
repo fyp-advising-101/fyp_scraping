@@ -1,23 +1,29 @@
 services:
   vectordb:
-    image: ghcr.io/chroma-core/chroma:0.5.0  # Image tag: https://github.com/chroma-core/chroma/releases
-    build: ./
+    build:
+      context: .
+      dockerfile: Dockerfile.vectordb  
     container_name: chroma_docker
     environment:
-      #- SQLALCHEMY_DATABASE_URI=mysql+pymysql://root:rootpassword@mysql-container:3306/database
+      - CHROMA_TELEMETRY_ANONYMOUS=false
       - SQLALCHEMY_DATABASE_URI=mysql+pymysql://user:hello123@mysql-container:3306/fyp_db
+      - CHROMA_LOG_CONFIG=/chromadb/log_config.yml
     networks:
       - my_network
     ports:
-      - 8000:8000
-    env_file:
-      - ./.env
+      - 8800:8000
     volumes:
-      - ./my_db:/chroma/my_db
-      - ./my_config:/chroma/my_config
+      - ./chromadb:/chromadb
+      - ./chromadb/log_config.yml:/chromadb/log_config.yml
     depends_on:
       mysql:
-        condition: service_healthy
+        condition:
+          service_healthy
+    # healthcheck:
+    #   test: [ "CMD", "curl", "-f", "http://host.docker.internal:8800/api/v1/heartbeat" ]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
 
   mysql:
     image: mysql:8.0
@@ -42,8 +48,7 @@ services:
     container_name: scraper
     environment:
      # - SQLALCHEMY_DATABASE_URI=mysql+pymysql://root:rootpassword@mysql-container:3306/database
-      
-      - SQLALCHEMY_DATABASE_URI=mysql+pymysql://user:hello123@mysql-container:3306/fyp_db
+
     networks:
       - my_network
     ports:
@@ -51,6 +56,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      # vectordb:
+      #     condition: service_healthy
 
   selenium:
     image: selenium/standalone-chrome:latest
@@ -63,11 +70,10 @@ services:
       - SE_NODE_MAX_SESSION=5  # Optional: You can set the maximum number of sessions
     volumes:
       - /dev/shm:/dev/shm  # To avoid shared memory issues with Chrome
-    platform: linux/amd64
 
 networks:
   my_network:
-    driver: bridge
+    # driver: bridge
 
 volumes:
   mysql_data:

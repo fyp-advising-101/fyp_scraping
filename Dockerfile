@@ -1,6 +1,10 @@
 # Use Python 3.10 as the base image
 FROM python:3.10-slim
 
+RUN apt-get update --fix-missing && \
+    apt-get install -y --fix-missing build-essential 
+
+    
 COPY ./requirements.txt /app/requirements.txt
 
 # Set the working directory

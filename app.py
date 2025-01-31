@@ -28,7 +28,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
     'SQLALCHEMY_DATABASE_URI',
-    'mysql+pymysql://user:hello123@localhost:3306/fyp_db'
+    'mysql+pymysql://user:hello123@localhost:3307/fyp_db'
     #'mysql+pymysql://root:rootpassword@localhost:3307/database'  # Default for local testing
 )
 db.init_app(app)
@@ -56,12 +56,14 @@ def scrape():
             scrape_targets = ScrapeTarget.query.filter_by(type='website').all()
             urls_to_scrape = [target.url for target in scrape_targets]
 
-            if not urls_to_scrape:
-                return jsonify({'error': 'No websites to scrape found in the database.'}), 404
+            # if not urls_to_scrape:
+            #     return jsonify({'error': 'No websites to scrape found in the database.'}), 404 #REMOVE
 
             today = datetime.date.today()
-            task : JobScheduler = JobScheduler.query.filter_by(task_name='Website Scrape').filter(
-                db.func.date(JobScheduler.scheduled_date) == today).first()
+            # task : JobScheduler = JobScheduler.query.filter_by(task_name='Website Scrape').filter(
+            #     db.func.date(JobScheduler.scheduled_date) == today).first() # REMOVE
+
+            task : JobScheduler = JobScheduler.query.filter_by(task_name='Website Scrape').first() # REMOVE
 
             if task:
                 # Update the status to 'running'

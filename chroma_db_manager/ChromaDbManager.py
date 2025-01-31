@@ -3,12 +3,21 @@ from chromadb import HttpClient
 import os
 import base64
 import requests
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG,  # Set the logging level
+    format="%(asctime)s - %(levelname)s - %(message)s",  # Define the log message format
+    datefmt="%Y-%m-%d %H:%M:%S",  # Define the date format
+    filename="app.log",  # Specify a file to write logs to
+    filemode="a",  # Append to the file (default is 'a')
+)
 
 class ChromaDBManager:
     def __init__(self, db_path, openai_api_key):
         # settings = Settings(
         #     chroma_server_host="127.0.0.1", ### CHANGE When deploying
-        #     chroma_server_http_port=8000,
+        #     chroma_server_http_port=3005,
         #     )
         # admin_client = AdminClient(settings=settings)
         # try:
@@ -19,11 +28,12 @@ class ChromaDBManager:
         #                         # on this type
         #     admin_client.create_tenant(name=db_path)
         #     admin_client.create_database(name=db_path, tenant=db_path)
-        self.client = HttpClient(host='127.0.0.1:8000')
+        self.client = HttpClient(host='vectordb', port=8000)
         openai.api_key = openai_api_key
 
     def get_or_create_collection(self, collection_name):
         """Get or create a Chroma DB collection."""
+        logging.info("Fetching collection", collection_name)
         return self.client.get_or_create_collection(name=collection_name)
 
     def generate_embedding(self, text):
@@ -34,12 +44,13 @@ class ChromaDBManager:
     def add_or_update_text_entry(self, collection_name, entry_id, text):
         """Add or update an entry in the Chroma DB."""
         collection = self.get_or_create_collection(collection_name)
+        logging.info("collection found:", collection_name)
         embedding = self.generate_embedding(text.page_content)
         # Check if entry already exists
         existing_entries = collection.get(ids=[entry_id])['ids']
 
         if entry_id in existing_entries:
-            print(f"Updating entry with ID: {entry_id}")
+            logging.info(f"Updating entry with ID: {entry_id}")
             collection.delete(ids=[entry_id])
 
         # Add the new or updated entry
@@ -49,7 +60,7 @@ class ChromaDBManager:
             documents=[text.page_content],
             metadatas=[{"info": "default"}]
         )
-        print(f"Entry with ID '{entry_id}' added/updated successfully!")
+        logging.info(f"Entry with ID '{entry_id}' added/updated successfully!")
 
     def add_or_update_image_entry(self, collection_name, entry_id, image_path):
         collection = self.get_or_create_collection(collection_name)
@@ -70,7 +81,7 @@ class ChromaDBManager:
             "content": [
                 {
                 "type": "text",
-                "text": "Generate a concise description of this image"
+                "text": "If this is an announcement, Generate a concise written announcement from it"
                 },
                 {
                 "type": "image_url",
@@ -93,7 +104,7 @@ class ChromaDBManager:
         existing_entries = collection.get(ids=[entry_id])['ids']
 
         if entry_id in existing_entries:
-            print(f"Updating entry with ID: {entry_id}")
+            logging.info(f"Updating entry with ID: {entry_id}")
             collection.delete(ids=[entry_id])
 
         # Add the new or updated entry
@@ -103,7 +114,7 @@ class ChromaDBManager:
             documents=[text],
             metadatas=[{"info": "default"}]
         )
-        print(f"Entry with ID '{entry_id}' added/updated successfully!")
+        logging.info(f"Entry with ID '{entry_id}' added/updated successfully!")
     # def persist(self):
     #     """Persist the database to ensure data is saved."""
     #     self.client.persist()

@@ -6,6 +6,15 @@ from models.jobScheduler import JobScheduler
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 from azure.storage.blob import BlobServiceClient
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG,  # Set the logging level
+    format="%(asctime)s - %(levelname)s - %(message)s",  # Define the log message format
+    datefmt="%Y-%m-%d %H:%M:%S",  # Define the date format
+    filename="app.log",  # Specify a file to write logs to
+    filemode="a",  # Append to the file (default is 'a')
+)
 
 output_folder_name = "scraper_output"
 pic_folder_name = "pics"
@@ -37,13 +46,13 @@ class TextFileProcessor:
                 files = [blob.name for blob in page]
                 if not files:
                     if job.status == 'Completed':
-                        print("Scheduler completed and no more files to process.")
+                        logging.info("Scheduler completed and no more files to process.")
                         break
-                    print("No files left to process. Waiting for new files...")
+                    logging.info("No files left to process. Waiting for new files...")
                     continue  # Wait for new files if the scheduler is still running
                 
                 for file in files:
-                    print(f"Processing file: {file}")
+                    logging.info(f"Processing file: {file}")
                     # Simulate file processing
                     # Assuming a cleaned up file
 
@@ -68,21 +77,21 @@ class TextFileProcessor:
                             manager.add_or_update_text_entry(collection_name, entry_id, text)
 
                     except FileNotFoundError:
-                        print(f"File not found: {file}")
+                        logging.info(f"File not found: {file}")
                     except Exception as e:
-                        print(f"An error occurred: {e}")
+                        logging.info(f"An error occurred: {e}")
 
-                    print(f"File processed: {file}")
+                    logging.info(f"File processed: {file}")
 
                 if job.status == 'Completed':
-                    print("Scheduler completed but there are still files to process.")
+                    logging.info("Scheduler completed but there are still files to process.")
                     continue  # Continue processing remaining files
 
                 job = JobScheduler.query.get(self.job_id)
 
             break # REMOVE ?
 
-        print(f"Exiting: Scheduler status is '{job.status}'. All files processed or terminated.")
+        logging.info(f"Exiting: Scheduler status is '{job.status}'. All files processed or terminated.")
 
     def process_image_files(self):
 
@@ -95,9 +104,9 @@ class TextFileProcessor:
                 files = [blob.name for blob in page]
                 if not files:
                     if job.status == 'Completed':
-                        print("Scheduler completed and no more files to process.")
+                        logging.info("Scheduler completed and no more files to process.")
                         break
-                    print("No files left to process. Waiting for new files...")
+                    logging.info("No files left to process. Waiting for new files...")
                     continue  # Wait for new files if the scheduler is still running
 
                 collection_name = "aub_embeddings"
@@ -105,7 +114,7 @@ class TextFileProcessor:
 
                 for file in files:
                     blob_client = self.image_container_client.get_blob_client(file)
-                    print(f"Processing file: {file}")
+                    logging.info(f"Processing file: {file}")
                     downloaded_bytes = blob_client.download_blob().readall()
                     # Save the binary data as an image into folder temporarily
                     local_file_path = os.path.join(temp_photos_directory, os.path.basename(file))
@@ -116,7 +125,7 @@ class TextFileProcessor:
                         manager.add_or_update_image_entry(collection_name, entry_id, local_file_path)
                         os.remove(local_file_path)
                     except Exception as e:
-                        print(f"An error occurred in image embeddings generation: {e}")
+                        logging.info(f"An error occurred in image embeddings generation: {e}")
 
                 
             break ##### REMOVE

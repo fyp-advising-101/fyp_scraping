@@ -1,0 +1,7 @@
+# Use the existing ChromaDB image as the base
+FROM ghcr.io/chroma-core/chroma:0.6.1
+
+# Update and install curl
+RUN apt-get update -y && apt-get install -y curl
+# RUN apt-get update --fix-missing && \
+#     apt-get install -y --fix-missing build-essential 

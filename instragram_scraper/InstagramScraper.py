@@ -90,8 +90,8 @@ class InstagramScraper:
         try:
             for post in data.get("business_discovery", {}).get("media", {}).get("data", []):
                 post_timestamp = datetime.strptime(post["timestamp"], "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
-                if post_timestamp < datetime.utcnow() - timedelta(days=30):
-                    print("All posts within 30 days fetched")
+                if post_timestamp < datetime.utcnow() - timedelta(days=15):
+                    print("All posts within 15 days fetched")
                     return 0
 
                 media_type = post.get('media_type')
