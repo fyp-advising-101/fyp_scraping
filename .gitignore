@@ -10,3 +10,4 @@ pics/*
 querychroma.py
 cliptest.py
 aub_embeddings/
+app.log

@@ -7,8 +7,16 @@ from website_crawler.website_crawler.spiders.scraper import run_spider
 from instagram_content_getter.get_posts import get_posts
 from text_file_processor.TextFileProcessor import TextFileProcessor
 from instragram_scraper.InstagramScraper import InstagramScraper
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
 
 db_path = 'chroma_db'
+KEY_VAULT_NAME = "advising101vault"
+KV_URI = f"https://{KEY_VAULT_NAME}.vault.azure.net/"
+
+credential = DefaultAzureCredential()
+key_vault_client = SecretClient(vault_url=KV_URI, credential=credential)
+
 
 from dotenv import load_dotenv
 import os
