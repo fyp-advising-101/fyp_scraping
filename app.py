@@ -11,11 +11,6 @@ from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 
 db_path = 'chroma_db'
-KEY_VAULT_NAME = "advising101vault"
-KV_URI = f"https://{KEY_VAULT_NAME}.vault.azure.net/"
-
-credential = DefaultAzureCredential()
-key_vault_client = SecretClient(vault_url=KV_URI, credential=credential)
 
 
 from dotenv import load_dotenv
@@ -34,11 +29,11 @@ logging.basicConfig(
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
-    'SQLALCHEMY_DATABASE_URI',
-    'mysql+pymysql://user:hello123@localhost:3307/fyp_db'
-    #'mysql+pymysql://root:rootpassword@localhost:3307/database'  # Default for local testing
-)
+VAULT_URL = "https://advising101vault.vault.azure.net"
+credential = DefaultAzureCredential()
+client = SecretClient(vault_url=VAULT_URL, credential=credential)
+app.config['SQLALCHEMY_DATABASE_URI'] =  client.get_secret("MYSQL-CONNECTION-STRING").value
+
 db.init_app(app)
 
 load_dotenv()

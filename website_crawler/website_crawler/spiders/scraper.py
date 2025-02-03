@@ -148,7 +148,7 @@ class DynamicTextSpider(Spider):
         selenium_response = HtmlResponse(url=response.url, body=html, encoding='utf-8', request=response.request)
 
         # Extract all text from the page excluding scripts and styles
-        all_text = selenium_response.xpath('//body//text()[not(ancestor::script or ancestor::style)]').getall()
+        all_text = selenium_response.xpath('//body//text()[not(ancestor::footer or ancestor::header or ancestor::script or ancestor::style)]').getall()
         cleaned_text = [text.strip() for text in all_text if text.strip()]
         full_text = '\n'.join(cleaned_text)
 
