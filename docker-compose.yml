@@ -38,12 +38,7 @@ services:
       context: ./
     container_name: scraper
     environment:
-      - APP_ID=861942379371299
-      - APP_SECRET=760999b7887a59c7bcb6a642e83d9c9a
-      - INSTAGRAM_USER_ID=17841469360862189
-      - OPENAI_API_KEY=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
-      - AZURE_BLOB_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=scraperoutput;AccountKey=KZtFddCQ5u4QZhltrUrhUg1uqJgmWEaG7ZnApwVk0pHVqM7/Ag5ON1ChzHf0MVTSEkNBISNU2jyn+AStJqiGjQ==;EndpointSuffix=core.windows.net 
-      - SQLALCHEMY_DATABASE_URI=mysql+pymysql://user:hello123@mysql-container:3306/fyp_db
+
     networks:
       - my_network
     ports:

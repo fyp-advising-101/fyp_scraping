@@ -149,4 +149,4 @@ def instagram_scrape():
         return jsonify({'message': f'Error while scrapping websites: {e}'}), 200
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=3001)
+    app.run(host="0.0.0.0", port=80)
