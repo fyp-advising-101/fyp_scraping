@@ -36,7 +36,7 @@ jobs:
         with:
           appSourcePath: ${{ github.workspace }}
           _dockerfilePathKey_: _dockerfilePath_
-          registryUrl: 
+          registryUrl: advising101.azurecr.io
           registryUsername: ${{ secrets.SCRAPER_REGISTRY_USERNAME }}
           registryPassword: ${{ secrets.SCRAPER_REGISTRY_PASSWORD }}
           containerAppName: scraper
