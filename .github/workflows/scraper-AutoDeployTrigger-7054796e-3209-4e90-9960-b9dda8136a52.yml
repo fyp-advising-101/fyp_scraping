@@ -41,7 +41,7 @@ jobs:
           registryPassword: ${{ secrets.SCRAPER_REGISTRY_PASSWORD }}
           containerAppName: scraper
           resourceGroup: advising101
-          imageToBuild: advising101acr.azurecr.io/scraper:${{ github.sha }}
+          imageToBuild: advising101.azurecr.io/scraper:${{ github.sha }}
           _buildArgumentsKey_: |
             _buildArgumentsValues_
 
