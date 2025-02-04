@@ -32,7 +32,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 VAULT_URL = "https://advising101vault.vault.azure.net"
 credential = DefaultAzureCredential()
 client = SecretClient(vault_url=VAULT_URL, credential=credential)
-app.config['SQLALCHEMY_DATABASE_URI'] =  client.get_secret("MYSQL-CONNECTION-STRING").value
+app.config['SQLALCHEMY_DATABASE_URI'] =  client.get_secret("SQLALCHEMY-DATABASE-URI").value
 
 db.init_app(app)
 
