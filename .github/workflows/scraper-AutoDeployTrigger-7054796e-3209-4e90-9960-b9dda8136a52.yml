@@ -36,12 +36,12 @@ jobs:
         with:
           appSourcePath: ${{ github.workspace }}
           _dockerfilePathKey_: _dockerfilePath_
-          registryUrl: 
-          registryUsername: ${{ secrets.SCRAPER_REGISTRY_USERNAME }}
-          registryPassword: ${{ secrets.SCRAPER_REGISTRY_PASSWORD }}
+          registryUrl: advising101.azurecr.io
+          registryUsername: advising101
+          registryPassword: uQC2/ziLcN4nxERJbfINZOYI1fXEP7LrSX1kyJde2T+ACRBHQRh5
           containerAppName: scraper
           resourceGroup: advising101
-          imageToBuild: default/[parameters('containerAppName')]:${{ github.sha }}
+          imageToBuild: advising101.azurecr.io/scraper:${{ github.sha }}
           _buildArgumentsKey_: |
             _buildArgumentsValues_
 
