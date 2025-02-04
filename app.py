@@ -32,10 +32,18 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 VAULT_URL = "https://advising101vault.vault.azure.net"
 credential = DefaultAzureCredential()
 client = SecretClient(vault_url=VAULT_URL, credential=credential)
-app.config['SQLALCHEMY_DATABASE_URI'] =  client.get_secret("SQLALCHEMY-DATABASE-URI").value
-
+mysql_password = client.get_secret("DB-PASSWORD").value
+ssl_cert = client.get_secret("DigiCert-CA-Cert").value
+cert = "-----BEGIN CERTIFICATE-----\n" + '\n'.join([ssl_cert[i:i+64] for i in range(0, len(ssl_cert), 64)]) + "\n-----END CERTIFICATE-----"
+os.makedirs('tmp', exist_ok=True)
+cert_path = "./tmp/DigiCertGlobalRootCA.crt.pem"
+with open(cert_path, "w") as f:
+    f.write(cert)
+app.config['SQLALCHEMY_DATABASE_URI'] = (
+    f'mysql+pymysql://advisor:{mysql_password}@mysqladvising101.mysql.database.azure.com:3306/fyp_db?'
+    f'ssl_ca={cert_path}'
+)
 db.init_app(app)
-
 load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 INSTAGRAM_USER_ID = os.getenv("INSTAGRAM_USER_ID")
