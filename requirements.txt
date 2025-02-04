@@ -122,7 +122,6 @@ pyreadline3==3.5.4
 PySocks==1.7.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
-pywin32==308
 PyYAML==6.0.2
 queuelib==1.7.0
 regex==2024.11.6
