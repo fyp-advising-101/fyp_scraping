@@ -38,7 +38,7 @@ class TextFileProcessor:
         """
         job : JobScheduler = JobScheduler.query.get(self.job_id)
 
-        while job.status != 'Terminated':  # Continue unless the scheduler is terminated
+        while True: #job.status != 'Terminated':  # Continue unless the scheduler is terminated # REMOVE
             blob_paginator = self.text_container_client.list_blobs(results_per_page=1000)  # Fetch 100 blobs per page
             paged_blobs = blob_paginator.by_page()
 

@@ -38,7 +38,8 @@ client = SecretClient(vault_url=VAULT_URL, credential=credential)
 
 output_folder_name = "scraper_output"
 container_name = "web-scraper-output"
-standalone_chrome_url= client.get_secret("SELENIUM-URL").value #https://selenium.bluedune-c06522b4.uaenorth.azurecontainerapps.io/wd/hub
+standalone_chrome_url= client.get_secret("SELENIUM-URL").value 
+#standalone_chrome_url = https://selenium.bluedune-c06522b4.uaenorth.azurecontainerapps.io/wd/hub
 
 class DynamicTextSpider(Spider):
     name = 'dynamic_text_spider'
