@@ -4,7 +4,6 @@ import datetime
 from concurrent.futures import ThreadPoolExecutor
 from database.database import db
 from website_crawler.website_crawler.spiders.scraper import run_spider
-from instagram_content_getter.get_posts import get_posts
 from text_file_processor.TextFileProcessor import TextFileProcessor
 from instragram_scraper.InstagramScraper import InstagramScraper
 from azure.identity import DefaultAzureCredential
@@ -45,12 +44,12 @@ app.config['SQLALCHEMY_DATABASE_URI'] = (
 )
 db.init_app(app)
 load_dotenv()
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-INSTAGRAM_USER_ID = os.getenv("INSTAGRAM_USER_ID")
-APP_SECRET = os.getenv("APP_SECRET")
-APP_ID = os.getenv("APP_ID")
-AZURE_BLOB_CONNECTION_STRING = os.getenv("AZURE_BLOB_CONNECTION_STRING")
-debug = os.getenv("DEBUG", "False")  
+OPENAI_API_KEY = client.get_secret('OPENAI-API-KEY').value
+INSTAGRAM_USER_ID = client.get_secret("INSTAGRAM-USER-ID").value
+APP_SECRET = client.get_secret("APP-SECRET").value
+APP_ID = client.get_secret("APP-ID").value
+AZURE_BLOB_CONNECTION_STRING = client.get_secret("AZURE-BLOB-CONNECTION-STRING").value
+#debug = os.getenv("DEBUG", "False")  
 
 
 with app.app_context():
