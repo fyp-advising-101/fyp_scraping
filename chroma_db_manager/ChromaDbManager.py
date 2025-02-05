@@ -38,13 +38,13 @@ class ChromaDBManager:
     def add_or_update_text_entry(self, collection_name, entry_id, text):
         """Add or update an entry in the Chroma DB."""
         collection = self.get_or_create_collection(collection_name)
-        logging.info("collection found:", collection_name)
+        logging.info("collection found: "+ collection_name)
         embedding = self.generate_embedding(text.page_content)
         # Check if entry already exists
         existing_entries = collection.get(ids=[entry_id])['ids']
 
         if entry_id in existing_entries:
-            logging.info(f"Updating entry with ID: {entry_id}")
+            logging.info("Updating entry with ID:" + entry_id)
             collection.delete(ids=[entry_id])
 
         # Add the new or updated entry
@@ -54,7 +54,7 @@ class ChromaDBManager:
             documents=[text.page_content],
             metadatas=[{"info": "default"}]
         )
-        logging.info(f"Entry with ID '{entry_id}' added/updated successfully!")
+        logging.info("Entry with ID" + entry_id + " added/updated successfully!")
 
     def add_or_update_image_entry(self, collection_name, entry_id, image_path):
         collection = self.get_or_create_collection(collection_name)
@@ -97,7 +97,7 @@ class ChromaDBManager:
         existing_entries = collection.get(ids=[entry_id])['ids']
 
         if entry_id in existing_entries:
-            logging.info(f"Updating entry with ID: {entry_id}")
+            logging.info("Updating entry with ID: " + entry_id)
             collection.delete(ids=[entry_id])
 
         # Add the new or updated entry
@@ -107,5 +107,5 @@ class ChromaDBManager:
             documents=[text],
             metadatas=[{"info": "default"}]
         )
-        logging.info(f"Entry with ID '{entry_id}' added/updated successfully!")
+        logging.info("Entry with ID " +entry_id + " added/updated successfully!")
 

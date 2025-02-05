@@ -8,7 +8,7 @@ from text_file_processor.TextFileProcessor import TextFileProcessor
 from instragram_scraper.InstagramScraper import InstagramScraper
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
-
+import time
 db_path = 'chroma_db'
 
 
@@ -93,6 +93,7 @@ def scrape():
             with ThreadPoolExecutor(max_workers=1) as executor:
                 executor.submit(run_scraper)
 
+            logging.info("Starting Processing")
             def run_text_file_processor():
                 with app.app_context():
                     try:
