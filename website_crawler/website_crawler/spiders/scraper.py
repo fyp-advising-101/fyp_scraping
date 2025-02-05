@@ -20,6 +20,8 @@ from PyPDF2 import PdfReader  # for extracting text from PDFs
 import requests
 from azure.storage.blob import BlobServiceClient
 import logging
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
 
 # Configure the logging
 logging.basicConfig(
@@ -30,9 +32,13 @@ logging.basicConfig(
     filemode="a",  # Append to the file (default is 'a')
 )
 
+VAULT_URL = "https://advising101vault.vault.azure.net"
+credential = DefaultAzureCredential()
+client = SecretClient(vault_url=VAULT_URL, credential=credential)
+
 output_folder_name = "scraper_output"
 container_name = "web-scraper-output"
-standalone_chrome_url= 'https://selenium.bluedune-c06522b4.uaenorth.azurecontainerapps.io:4444/wd/hub'
+standalone_chrome_url= client.get_secret("SELENIUM-URL").value #https://selenium.bluedune-c06522b4.uaenorth.azurecontainerapps.io/wd/hub
 
 class DynamicTextSpider(Spider):
     name = 'dynamic_text_spider'
