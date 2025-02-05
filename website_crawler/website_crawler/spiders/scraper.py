@@ -32,7 +32,7 @@ logging.basicConfig(
 
 output_folder_name = "scraper_output"
 container_name = "web-scraper-output"
-standalone_chrome_url= 'http://selenium:4444/wd/hub'
+standalone_chrome_url= 'https://selenium.bluedune-c06522b4.uaenorth.azurecontainerapps.io:4444/wd/hub'
 
 class DynamicTextSpider(Spider):
     name = 'dynamic_text_spider'
