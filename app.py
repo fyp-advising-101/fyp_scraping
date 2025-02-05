@@ -73,7 +73,7 @@ def scrape():
             # task : JobScheduler = JobScheduler.query.filter_by(task_name='Website Scrape').filter(
             #     db.func.date(JobScheduler.scheduled_date) == today).first() # REMOVE
 
-            task : JobScheduler = JobScheduler.query.filter_by(task_name='Website Scrape').first() # REMOVE
+            task : JobScheduler = JobScheduler.query.filter_by(task_name='Website Scrape').first() # REMOVE AND UNCOMMENT ABOVE 
 
             if task:
                 # Update the status to 'running'
@@ -93,24 +93,37 @@ def scrape():
             with ThreadPoolExecutor(max_workers=1) as executor:
                 executor.submit(run_scraper)
 
-            logging.info("Starting Processing")
+            return jsonify({'message': f'Scraping started for URLs: {urls_to_scrape}', 'task_name': task.task_name}), 200
+        
+        except Exception as e:
+            logging.error(f'Error while scraping websites: {e}')
+            db.session.rollback()
+            return jsonify({'message': f'Error while scrapping websites: {e}'}), 200
+
+
+@app.route('/process_text_files')
+def process_text_files():
+        try:
+            scrape_targets = ScrapeTarget.query.filter_by(type='website').all()
+            urls_to_scrape = [target.url for target in scrape_targets]
+            task : JobScheduler = JobScheduler.query.filter_by(task_name='Website Scrape').first()
             def run_text_file_processor():
                 with app.app_context():
                     try:
                         TextFileProcessor(db_path, OPENAI_API_KEY, task.id, AZURE_BLOB_CONNECTION_STRING).process_text_files()
                     except Exception as e:
                         logging.error(f"Error while starting text file processor: {e}")
-
+            
             with ThreadPoolExecutor(max_workers=1) as executor:
                 executor.submit(run_text_file_processor)
             
 
-                
-            return jsonify({'message': f'Scraping started for URLs: {urls_to_scrape}', 'task_name': task.task_name}), 200
+            
+            return jsonify({'message': f'Processing started for files from URLs: {urls_to_scrape}', 'task_name': task.task_name}), 200
         except Exception as e:
-            logging.error(f'Error while scraping websites: {e}')
+            logging.error(f'Error while processing text files: {e}')
             db.session.rollback()
-            return jsonify({'message': f'Error while scrapping websites: {e}'}), 200
+            return jsonify({'message': f'Error while processing text files: {e}'}), 200
     
         
 @app.route("/instagram_scrape", methods = ['GET'])
@@ -139,6 +152,20 @@ def instagram_scrape():
         instagram_scraper = InstagramScraper(INSTAGRAM_USER_ID, APP_ID, APP_SECRET, AZURE_BLOB_CONNECTION_STRING)
         instagram_scraper.get_posts(accounts_to_scrape)
 
+        return jsonify({'message': f'Fetcing started for Accounts: {accounts_to_scrape}', 'task_name': 'Fetch Instagram Content'}), 200
+    except Exception as e:
+        logging.error(f'Error while scraping websites: {e}')
+        db.session.rollback()
+        return jsonify({'message': f'Error while scrapping websites: {e}'}), 200
+
+@app.route("/process_image_files")
+def process_image_files():
+    scrape_targets = ScrapeTarget.query.filter_by(type='instagram').all()
+    accounts_to_scrape = [target.url for target in scrape_targets]
+    today = datetime.date.today()
+    task : JobScheduler = JobScheduler.query.filter_by(task_name='Get Instagram Content').filter(
+            db.func.date(JobScheduler.scheduled_date) == today).first()
+    try:
         def run_image_file_processor():
                 with app.app_context():
                     try:
@@ -149,12 +176,12 @@ def instagram_scrape():
         with ThreadPoolExecutor(max_workers=1) as executor:
             executor.submit(run_image_file_processor)
 
-        return jsonify({'message': f'Fetching started for Accounts: {accounts_to_scrape}', 'task_name': 'Get Instagram Content'}), 200
+        return jsonify({'message': f'Processing started for Images from: {accounts_to_scrape}', 'task_name': 'Process Instagram Content'}), 200
         #return jsonify({'message': f'Fetching started for Accounts: {target_accounts}', 'task_name': {task.task_name}}), 200
     except Exception as e:
-        logging.error(f'Error while scraping websites: {e}')
+        logging.error(f'Error while processing images: {e}')
         db.session.rollback()
-        return jsonify({'message': f'Error while scrapping websites: {e}'}), 200
+        return jsonify({'message': f'Error while processing images: {e}'}), 200
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=80)
