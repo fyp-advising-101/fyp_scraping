@@ -4,6 +4,8 @@ import os
 import base64
 import requests
 import logging
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
 
 logging.basicConfig(
     level=logging.DEBUG,  # Set the logging level
@@ -13,9 +15,15 @@ logging.basicConfig(
     filemode="a",  # Append to the file (default is 'a')
 )
 
+VAULT_URL = "https://advising101vault.vault.azure.net"
+credential = DefaultAzureCredential()
+client = SecretClient(vault_url=VAULT_URL, credential=credential)
+chroma_hostname = client.get_secret("CHROMA-HOSTNAME").value
+chroma_port = client.get_secret("CHROMA-PORT").value
+
 class ChromaDBManager:
     def __init__(self, db_path, openai_api_key):
-        self.client = HttpClient(host='vectordb', port=8000)
+        self.client = HttpClient(host=chroma_hostname, port=int(chroma_port))
         openai.api_key = openai_api_key
 
     def get_or_create_collection(self, collection_name):
