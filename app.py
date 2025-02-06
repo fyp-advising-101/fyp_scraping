@@ -101,7 +101,7 @@ def scrape():
             return jsonify({'message': f'Error while scrapping websites: {e}'}), 200
 
 
-@app.route('/process_text_files')
+@app.route('/process_text_files', methods = ["GET"])
 def process_text_files():
         try:
             scrape_targets = ScrapeTarget.query.filter_by(type='website').all()
@@ -158,7 +158,7 @@ def instagram_scrape():
         db.session.rollback()
         return jsonify({'message': f'Error while scrapping websites: {e}'}), 200
 
-@app.route("/process_image_files")
+@app.route("/process_image_files", methods = ["GET"])
 def process_image_files():
     scrape_targets = ScrapeTarget.query.filter_by(type='instagram').all()
     accounts_to_scrape = [target.url for target in scrape_targets]
