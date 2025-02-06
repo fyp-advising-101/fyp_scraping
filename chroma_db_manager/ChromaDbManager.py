@@ -4,6 +4,8 @@ import os
 import base64
 import requests
 import logging
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
 
 logging.basicConfig(
     level=logging.DEBUG,  # Set the logging level
@@ -13,9 +15,15 @@ logging.basicConfig(
     filemode="a",  # Append to the file (default is 'a')
 )
 
+VAULT_URL = "https://advising101vault.vault.azure.net"
+credential = DefaultAzureCredential()
+client = SecretClient(vault_url=VAULT_URL, credential=credential)
+chroma_hostname = client.get_secret("CHROMA-HOSTNAME").value
+chroma_port = client.get_secret("CHROMA-PORT").value
+
 class ChromaDBManager:
     def __init__(self, db_path, openai_api_key):
-        self.client = HttpClient(host='vectordb', port=8000)
+        self.client = HttpClient(host=chroma_hostname, port=int(chroma_port))
         openai.api_key = openai_api_key
 
     def get_or_create_collection(self, collection_name):
@@ -30,13 +38,13 @@ class ChromaDBManager:
     def add_or_update_text_entry(self, collection_name, entry_id, text):
         """Add or update an entry in the Chroma DB."""
         collection = self.get_or_create_collection(collection_name)
-        logging.info("collection found:", collection_name)
+        logging.info("collection found: "+ collection_name)
         embedding = self.generate_embedding(text.page_content)
         # Check if entry already exists
         existing_entries = collection.get(ids=[entry_id])['ids']
 
         if entry_id in existing_entries:
-            logging.info(f"Updating entry with ID: {entry_id}")
+            logging.info("Updating entry with ID:" + entry_id)
             collection.delete(ids=[entry_id])
 
         # Add the new or updated entry
@@ -46,7 +54,7 @@ class ChromaDBManager:
             documents=[text.page_content],
             metadatas=[{"info": "default"}]
         )
-        logging.info(f"Entry with ID '{entry_id}' added/updated successfully!")
+        logging.info("Entry with ID" + entry_id + " added/updated successfully!")
 
     def add_or_update_image_entry(self, collection_name, entry_id, image_path):
         collection = self.get_or_create_collection(collection_name)
@@ -89,7 +97,7 @@ class ChromaDBManager:
         existing_entries = collection.get(ids=[entry_id])['ids']
 
         if entry_id in existing_entries:
-            logging.info(f"Updating entry with ID: {entry_id}")
+            logging.info("Updating entry with ID: " + entry_id)
             collection.delete(ids=[entry_id])
 
         # Add the new or updated entry
@@ -99,5 +107,5 @@ class ChromaDBManager:
             documents=[text],
             metadatas=[{"info": "default"}]
         )
-        logging.info(f"Entry with ID '{entry_id}' added/updated successfully!")
+        logging.info("Entry with ID " +entry_id + " added/updated successfully!")
 

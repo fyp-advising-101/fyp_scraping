@@ -20,6 +20,8 @@ from PyPDF2 import PdfReader  # for extracting text from PDFs
 import requests
 from azure.storage.blob import BlobServiceClient
 import logging
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
 
 # Configure the logging
 logging.basicConfig(
@@ -30,9 +32,14 @@ logging.basicConfig(
     filemode="a",  # Append to the file (default is 'a')
 )
 
+VAULT_URL = "https://advising101vault.vault.azure.net"
+credential = DefaultAzureCredential()
+client = SecretClient(vault_url=VAULT_URL, credential=credential)
+
 output_folder_name = "scraper_output"
 container_name = "web-scraper-output"
-standalone_chrome_url= 'http://selenium:4444/wd/hub'
+standalone_chrome_url= client.get_secret("SELENIUM-URL").value 
+#standalone_chrome_url = https://selenium.bluedune-c06522b4.uaenorth.azurecontainerapps.io/wd/hub
 
 class DynamicTextSpider(Spider):
     name = 'dynamic_text_spider'
@@ -148,7 +155,7 @@ class DynamicTextSpider(Spider):
         selenium_response = HtmlResponse(url=response.url, body=html, encoding='utf-8', request=response.request)
 
         # Extract all text from the page excluding scripts and styles
-        all_text = selenium_response.xpath('//body//text()[not(ancestor::script or ancestor::style)]').getall()
+        all_text = selenium_response.xpath('//body//text()[not(ancestor::footer or ancestor::header or ancestor::script or ancestor::style)]').getall()
         cleaned_text = [text.strip() for text in all_text if text.strip()]
         full_text = '\n'.join(cleaned_text)
 

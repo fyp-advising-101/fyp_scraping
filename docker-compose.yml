@@ -6,7 +6,6 @@ services:
     container_name: chroma_docker
     environment:
       - CHROMA_TELEMETRY_ANONYMOUS=false
-      - SQLALCHEMY_DATABASE_URI=mysql+pymysql://user:hello123@mysql-container:3306/fyp_db
       - CHROMA_LOG_CONFIG=/chromadb/log_config.yml
     networks:
       - my_network
@@ -15,15 +14,7 @@ services:
     volumes:
       - ./chromadb:/chromadb
       - ./chromadb/log_config.yml:/chromadb/log_config.yml
-    depends_on:
-      mysql:
-        condition:
-          service_healthy
-    # healthcheck:
-    #   test: [ "CMD", "curl", "-f", "http://host.docker.internal:8800/api/v1/heartbeat" ]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 3
+
 
   mysql:
     image: mysql:8.0
@@ -47,7 +38,6 @@ services:
       context: ./
     container_name: scraper
     environment:
-     # - SQLALCHEMY_DATABASE_URI=mysql+pymysql://root:rootpassword@mysql-container:3306/database
 
     networks:
       - my_network
@@ -56,8 +46,6 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-      # vectordb:
-      #     condition: service_healthy
 
   selenium:
     image: selenium/standalone-chrome:latest
@@ -74,6 +62,7 @@ services:
 networks:
   my_network:
     # driver: bridge
+  chroma_network:
 
 volumes:
   mysql_data:
