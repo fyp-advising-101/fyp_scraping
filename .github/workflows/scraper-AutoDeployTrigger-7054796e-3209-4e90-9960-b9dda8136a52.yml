@@ -5,7 +5,7 @@ on:
   # Automatically trigger it when detected changes in repo
   push:
     branches: 
-      [ azure-deployment ]
+      [ main ]
     paths:
     - '**'
     - '.github/workflows/scraper-AutoDeployTrigger-7054796e-3209-4e90-9960-b9dda8136a52.yml'
