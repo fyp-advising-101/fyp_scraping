@@ -6,6 +6,7 @@ import requests
 import logging
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
+from azure.storage.blob import BlobServiceClient
 
 logging.basicConfig(
     level=logging.DEBUG,  # Set the logging level
@@ -20,11 +21,14 @@ credential = DefaultAzureCredential()
 client = SecretClient(vault_url=VAULT_URL, credential=credential)
 chroma_hostname = client.get_secret("CHROMA-HOSTNAME").value
 chroma_port = client.get_secret("CHROMA-PORT").value
+AZURE_BLOB_CONNECTION_STRING = client.get_secret("AZURE-BLOB-CONNECTION-STRING").value
+text_container_name = "processed-instagram-scraper-output"
 
 class ChromaDBManager:
     def __init__(self, db_path, openai_api_key):
         self.client = HttpClient(host=chroma_hostname, port=int(chroma_port))
         openai.api_key = openai_api_key
+        self.blob_service_client = BlobServiceClient.from_connection_string(AZURE_BLOB_CONNECTION_STRING)
 
     def get_or_create_collection(self, collection_name):
         """Get or create a Chroma DB collection."""
@@ -56,9 +60,8 @@ class ChromaDBManager:
         )
         logging.info("Entry with ID" + entry_id + " added/updated successfully!")
 
-    def add_or_update_image_entry(self, collection_name, entry_id, image_path):
-        collection = self.get_or_create_collection(collection_name)
-
+    def convert_image_to_text(self, image_path, image_name):
+        # get description
         with open(image_path, "rb") as image_file:
              base64_image = base64.b64encode(image_file.read()).decode('utf-8')
 
@@ -75,7 +78,7 @@ class ChromaDBManager:
             "content": [
                 {
                 "type": "text",
-                "text": "If this is an announcement, Generate a concise written announcement from it"
+                "text": "If this is an announcement, Generate a one sentence written announcement from it in third person pov. If this is a meme or relatable content, write one sentence explaining it."
                 },
                 {
                 "type": "image_url",
@@ -91,21 +94,11 @@ class ChromaDBManager:
 
         response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
         text = response.json()['choices'][0]['message']['content']
-
-        embedding = self.generate_embedding(text)
-
-        existing_entries = collection.get(ids=[entry_id])['ids']
-
-        if entry_id in existing_entries:
-            logging.info("Updating entry with ID: " + entry_id)
-            collection.delete(ids=[entry_id])
-
-        # Add the new or updated entry
-        collection.add(
-            ids=[entry_id],
-            embeddings=[embedding],
-            documents=[text],
-            metadatas=[{"info": "default"}]
-        )
-        logging.info("Entry with ID " +entry_id + " added/updated successfully!")
+        #append to file in blob
+        text_file = image_name.rsplit('_', 1)[0] + '.txt'
+        blob_client = self.blob_service_client.get_blob_client(container=text_container_name, blob=text_file)
+        existing_content = blob_client.download_blob().readall().decode("utf-8")
+        new_content = existing_content + '\n' + text
+        blob_client.upload_blob(new_content, overwrite=True)
+        
 

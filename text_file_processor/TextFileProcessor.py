@@ -21,6 +21,7 @@ pic_folder_name = "pics"
 db_path = "aub_embeddings"
 text_container_name = "web-scraper-output"
 image_container_name = "instagram-scraper-output"
+processed_image_container_name = "processed-instagram-scraper-output"
 temp_photos_directory = "pics"
 
 class TextFileProcessor:
@@ -31,6 +32,7 @@ class TextFileProcessor:
         self.blob_service_client = BlobServiceClient.from_connection_string(scraper_output_connection_string)
         self.text_container_client = self.blob_service_client.get_container_client(text_container_name)
         self.image_container_client = self.blob_service_client.get_container_client(image_container_name)
+        self.processed_image_container_client = self.blob_service_client.get_container_client(processed_image_container_name)
 
     def process_text_files(self): 
         """
@@ -96,7 +98,7 @@ class TextFileProcessor:
     def process_image_files(self):
 
         job : JobScheduler = JobScheduler.query.get(self.job_id)
-
+        collection_name = "aub_embeddings"
         while True: #job.status != 'Terminated':  # Continue unless the scheduler is terminated # REMOVE
             blob_paginator = self.image_container_client.list_blobs(results_per_page=100)  # Fetch 100 blobs per page
             paged_blobs = blob_paginator.by_page()
@@ -109,7 +111,6 @@ class TextFileProcessor:
                     logging.info("No files left to process. Waiting for new files...")
                     continue  # Wait for new files if the scheduler is still running
 
-                collection_name = "aub_embeddings"
                 manager = ChromaDBManager(db_path=db_path, openai_api_key=openai.api_key)
 
                 for file in files:
@@ -122,10 +123,32 @@ class TextFileProcessor:
                         f.write(downloaded_bytes)  # Write the raw bytes to the file
                     try:
                         entry_id = file
-                        manager.add_or_update_image_entry(collection_name, entry_id, local_file_path)
+                        #process images into text
+                        manager.convert_image_to_text(local_file_path, file) 
                         os.remove(local_file_path)
                     except Exception as e:
                         logging.error(f"An error occurred in image embeddings generation: {e}")
 
-                
+            # Embed text files that contain image descriptions
+
+            blob_paginator = self.processed_image_container_client.list_blobs(results_per_page=1000)  # Fetch 100 blobs per page
+            paged_blobs = blob_paginator.by_page()
+            for page in paged_blobs:
+                files = [blob.name for blob in page]
+                if not files:
+                    if job.status == 'Completed':
+                        logging.info("Scheduler completed and no more text files from images to process.")
+                        break
+                    logging.info("No text files from images left to process. Waiting for new files...")
+                    continue  # Wait for new files if the scheduler is still running
+
+                manager = ChromaDBManager(db_path=db_path, openai_api_key=openai.api_key)
+                for file in files:
+                    blob_client = self.processed_image_container_client.get_blob_client(file)
+                    logging.info(f"Processing file: {file}")
+                    downloaded_text = blob_client.download_blob().readall().decode("utf-8")
+                    # Save the binary data as an image into folder temporarily
+                    document = Document(page_content=downloaded_text, metadata={"source": "example_source"})
+                    manager.add_or_update_text_entry(collection_name, file, document)
+
             break ##### REMOVE

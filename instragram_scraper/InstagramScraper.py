@@ -20,6 +20,7 @@ load_dotenv()
 
 access_token = 'EAAMP7plW2yMBO7eFc3VMgi9awrZB1gI6OV8AuzDS2ir1UW5GWjutCiqbEfj7iVBmxPY8ug4CMCv8TeyOSFZA1Av3Q4ZC25P6qg1ZBeNiZB6QGvxYLoW3EpMTJSsDZB7g1zdxTo5TmOwzSb1FYabwDyFpu8z0dTBZAZAcZATpKj9ktEiHqb1PnxIZC4ZClPSXZAk3O1MM'
 container_name = "instagram-scraper-output"
+text_container_name = "processed-instagram-scraper-output"
 
 class InstagramScraper:
     def __init__(self, user_id, app_id, app_secret, connection_string):
@@ -29,7 +30,7 @@ class InstagramScraper:
         self.access_token = access_token
         self.base_url = f"https://graph.facebook.com/v20.0/{self.user_id}"
         self.fields_1 = "{followers_count,media_count,media"
-        self.fields_2 = "{media_url,media_type,children{media_url},timestamp,paging},follows_count}"
+        self.fields_2 = "{media_url,media_type,children{media_url},timestamp,paging, caption},follows_count}"
         self.output_dir = "pics"
         self.blob_service_client = BlobServiceClient.from_connection_string(connection_string)
         os.makedirs(self.output_dir, exist_ok=True)
@@ -99,11 +100,23 @@ class InstagramScraper:
         try:
             for post in data.get("business_discovery", {}).get("media", {}).get("data", []):
                 post_timestamp = datetime.strptime(post["timestamp"], "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
-                if post_timestamp < datetime.utcnow() - timedelta(days=15):
-                    logging.info("All posts within 15 days fetched")
+                if post_timestamp < datetime.utcnow() - timedelta(days=3):
+                    logging.info("All posts within 3 days fetched")
                     return 0
 
                 media_type = post.get('media_type')
+                # Save caption to txt file on processed_instagram_scraper_output container
+                caption = post.get('caption')
+                post_id = post.get('id')
+                local_filename = f'{username}_{post_id}.txt'
+                with open(local_filename, 'w', encoding='utf-8') as caption_text_file:
+                    caption_text_file.write(caption)
+
+                blob_client = self.blob_service_client.get_blob_client(container=text_container_name, blob=f'{username}_{post_id}.txt')
+                with open(local_filename, "rb") as file:
+                    blob_client.upload_blob(file, overwrite=True)
+
+                os.remove(local_filename)
                 if media_type == "VIDEO":
                     continue
                 
@@ -120,8 +133,8 @@ class InstagramScraper:
                 else:
                     url = post.get("media_url")
                     post_id = post.get("id")
-                    filename = f"{username}_{post_id}.jpg"
-                    file_path = os.path.join(self.output_dir, f"{username}_{post_id}.jpg")
+                    filename = f"{username}_{post_id}_.jpg"
+                    file_path = os.path.join(self.output_dir, f"{username}_{post_id}_.jpg")
                     if not self.store_image(url, file_path, filename):
                         logging.info("All up to date")
                         return 0
