@@ -7,6 +7,7 @@ import logging
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from azure.storage.blob import BlobServiceClient
+import datetime
 
 logging.basicConfig(
     level=logging.DEBUG,  # Set the logging level
@@ -56,7 +57,7 @@ class ChromaDBManager:
             ids=[entry_id],
             embeddings=[embedding],
             documents=[text.page_content],
-            metadatas=[{"info": "default"}]
+            metadatas=[{"date_added": datetime.now().isoformat()}]
         )
         logging.info("Entry with ID" + entry_id + " added/updated successfully!")
 
