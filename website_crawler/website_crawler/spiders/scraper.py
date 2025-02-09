@@ -213,12 +213,18 @@ class DynamicTextSpider(Spider):
         # Now, extract all links from the rendered page and follow them
         for next_page in selenium_response.css('a::attr(href)').getall():
             if next_page:
+                # Skip non-http(s) URLs like "mailto:" or "tel:"
+                if not next_page.startswith("http"):
+                    continue
+
                 # Convert relative URLs to absolute URLs
                 next_page = response.urljoin(next_page)
+                
                 # Follow links that belong to the domain 'aub.edu.lb' and haven't been visited yet.
                 if "aub.edu.lb" in next_page and next_page not in self.visited_urls:
                     self.visited_urls.add(next_page)
                     yield scrapy.Request(next_page, callback=self.parse)
+
 
 
 
