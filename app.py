@@ -130,7 +130,7 @@ def process_text_files():
 def instagram_scrape():
     try:
         scrape_targets = ScrapeTarget.query.filter_by(type='instagram').all()
-        accounts_to_scrape = [target.url for target in scrape_targets]
+        accounts_to_scrape = [(target.url, target.category) for target in scrape_targets]
 
         if not accounts_to_scrape:
             return jsonify({'error': 'No accounts to get posts from found in the database.'}), 404

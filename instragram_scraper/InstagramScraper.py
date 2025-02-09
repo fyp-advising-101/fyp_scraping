@@ -30,7 +30,7 @@ class InstagramScraper:
         self.access_token = access_token
         self.base_url = f"https://graph.facebook.com/v20.0/{self.user_id}"
         self.fields_1 = "{followers_count,media_count,media"
-        self.fields_2 = "{media_url,media_type,children{media_url},timestamp,paging, caption},follows_count}"
+        self.fields_2 = "{media_url,media_type,children{media_url, media_type},timestamp,paging, caption},follows_count}"
         self.output_dir = "pics"
         self.blob_service_client = BlobServiceClient.from_connection_string(connection_string)
         os.makedirs(self.output_dir, exist_ok=True)
@@ -95,7 +95,7 @@ class InstagramScraper:
         os.remove(local_file_path)
         return 1
 
-    def fetch_images_from_page(self, data, username):
+    def fetch_images_from_page(self, data, username, category):
         """Process a page of data and fetch images."""
         try:
             for post in data.get("business_discovery", {}).get("media", {}).get("data", []):
@@ -108,11 +108,11 @@ class InstagramScraper:
                 # Save caption to txt file on processed_instagram_scraper_output container
                 caption = post.get('caption')
                 post_id = post.get('id')
-                local_filename = f'{username}_{post_id}.txt'
+                local_filename = f'{category}_{username}_{post_id}.txt'
                 with open(local_filename, 'w', encoding='utf-8') as caption_text_file:
                     caption_text_file.write(caption)
 
-                blob_client = self.blob_service_client.get_blob_client(container=text_container_name, blob=f'{username}_{post_id}.txt')
+                blob_client = self.blob_service_client.get_blob_client(container=text_container_name, blob=local_filename)
                 with open(local_filename, "rb") as file:
                     blob_client.upload_blob(file, overwrite=True)
 
@@ -122,19 +122,21 @@ class InstagramScraper:
                 
                 if media_type == "CAROUSEL_ALBUM":
                     for carousel_child in post.get("children", {}).get("data", []):
+                        if carousel_child.get("media_type") == "VIDEO":
+                            continue
                         url = carousel_child.get("media_url")
                         child_id = carousel_child.get("id")
                         post_id = post.get('id')
-                        filename = f"{username}_{post_id}_{child_id}.jpg"
-                        file_path = os.path.join(self.output_dir, f"{username}_{post_id}_{child_id}.jpg")
+                        filename = f"{category}_{username}_{post_id}_{child_id}.jpg"
+                        file_path = os.path.join(self.output_dir, f"{category}_{username}_{post_id}_{child_id}.jpg")
                         if not self.store_image(url, file_path, filename):
                             logging.info("All up to date")
                             return 0
                 else:
                     url = post.get("media_url")
                     post_id = post.get("id")
-                    filename = f"{username}_{post_id}_.jpg"
-                    file_path = os.path.join(self.output_dir, f"{username}_{post_id}_.jpg")
+                    filename = f"{category}_{username}_{post_id}_.jpg"
+                    file_path = os.path.join(self.output_dir, f"{category}_{username}_{post_id}_.jpg")
                     if not self.store_image(url, file_path, filename):
                         logging.info("All up to date")
                         return 0
@@ -142,8 +144,10 @@ class InstagramScraper:
         except Exception as e:
             logging.error(f"Unexpected error in fetch_images_from_page: {e}")
 
-    def get_user_posts(self, username):
+    def get_user_posts(self, target):
         """Fetch posts for a specific username."""
+        username = target[0]
+        category = target[1]
         try:
             params = {
                 "fields": f'business_discovery.username({username}){self.fields_1}{self.fields_2}',
@@ -153,7 +157,7 @@ class InstagramScraper:
             response = requests.get(self.base_url, params=params)
             if response.status_code == 200:
                 data = response.json()
-                if not self.fetch_images_from_page(data, username):
+                if not self.fetch_images_from_page(data, username, category):
                     return
 
                 try:
@@ -164,7 +168,7 @@ class InstagramScraper:
                         response = requests.get(self.base_url, params=params)
                         if response.status_code == 200:
                             data = response.json()
-                            if not self.fetch_images_from_page(data, username):
+                            if not self.fetch_images_from_page(data, username, category):
                                 break
                         else:
                             logging.error(f"Error fetching next page: {response.status_code}, {response.text}")
@@ -176,7 +180,7 @@ class InstagramScraper:
         except Exception as e:
             logging.error(f"Unexpected error in get_user_posts: {e}")
 
-    def get_posts(self, usernames):
+    def get_posts(self, targets):
         """Fetch posts for a list of usernames using multithreading."""
         with ThreadPoolExecutor(max_workers=5) as executor:
-            executor.map(self.get_user_posts, usernames)
+            executor.map(self.get_user_posts, targets)

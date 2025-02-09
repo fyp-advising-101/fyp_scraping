@@ -149,6 +149,6 @@ class TextFileProcessor:
                     downloaded_text = blob_client.download_blob().readall().decode("utf-8")
                     # Save the binary data as an image into folder temporarily
                     document = Document(page_content=downloaded_text, metadata={"source": "example_source"})
-                    manager.add_or_update_text_entry(collection_name, file, document)
+                    manager.add_or_update_image_entry(collection_name, file, document)
 
             break ##### REMOVE

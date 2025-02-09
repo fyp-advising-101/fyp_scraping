@@ -57,7 +57,31 @@ class ChromaDBManager:
             ids=[entry_id],
             embeddings=[embedding],
             documents=[text.page_content],
-            metadatas=[{"date_added": datetime.now().isoformat()}]
+            metadatas=[{"date_added": datetime.now().isoformat(), "category": "info"}]
+        )
+        logging.info("Entry with ID" + entry_id + " added/updated successfully!")
+
+    def add_or_update_image_entry(self, collection_name, filename, text):
+        """Add or update an entry in the Chroma DB."""
+        split_filename = filename.split('_', 1)
+        entry_id = split_filename[1]
+        category = split_filename[0]
+        collection = self.get_or_create_collection(collection_name)
+        logging.info("collection found: "+ collection_name)
+        embedding = self.generate_embedding(text.page_content)
+        # Check if entry already exists
+        existing_entries = collection.get(ids=[entry_id])['ids']
+
+        if entry_id in existing_entries:
+            logging.info("Updating entry with ID:" + entry_id)
+            collection.delete(ids=[entry_id])
+
+        # Add the new or updated entry
+        collection.add(
+            ids=[entry_id],
+            embeddings=[embedding],
+            documents=[text.page_content],
+            metadatas=[{"date_added": datetime.datetime.now().isoformat(), "category": category }]
         )
         logging.info("Entry with ID" + entry_id + " added/updated successfully!")
 
