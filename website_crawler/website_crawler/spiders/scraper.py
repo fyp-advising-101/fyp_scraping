@@ -164,29 +164,36 @@ class DynamicTextSpider(Spider):
 
         # Use a refined XPath expression to extract text while excluding boilerplate elements.
         all_text = container.xpath(
-        './/text()['
-        'not(ancestor::header) and '
-        'not(ancestor::footer) and '
-        'not(ancestor::nav) and '
-        'not(ancestor::aside) and '
-        'not(ancestor::*[contains(@class, "breadcrumb")]) and '
-        'not(ancestor::*[contains(@class, "quick-access")]) and '
-        'not(ancestor::*[contains(@class, "ms-webpart")]) and '
-        'not(ancestor::*[contains(@class, "ms-notif")]) and '
-        'not(ancestor::*[contains(@class, "footerlinks")]) and '
-        'not(ancestor::*[contains(@class, "nav-social")]) and '
-        'not(ancestor::script) and '
-        'not(ancestor::style)'
-        ']'
-    ).getall()
-
+            './/text()['
+            'not(ancestor::header) and '
+            'not(ancestor::footer) and '
+            'not(ancestor::nav) and '
+            'not(ancestor::aside) and '
+            'not(ancestor::*[contains(@class, "breadcrumb")]) and '
+            'not(ancestor::*[contains(@class, "quick-access")]) and '
+            'not(ancestor::*[contains(@class, "ms-webpart")]) and '
+            'not(ancestor::*[contains(@class, "ms-notif")]) and '
+            'not(ancestor::*[contains(@class, "footerlinks")]) and '
+            'not(ancestor::*[contains(@class, "nav-social")]) and '
+            'not(ancestor::script) and '
+            'not(ancestor::style)'
+            ']'
+        ).getall()
 
         # Clean up the text: remove extra whitespace and empty strings
         cleaned_text = [text.strip() for text in all_text if text.strip()]
         full_text = '\n'.join(cleaned_text)
 
+        # Helper function to sanitize the filename (removes illegal characters)
+        def sanitize_filename(filename: str) -> str:
+            invalid_chars = ['?', '/', '\\', ':', '*', '"', '<', '>', '|']
+            for ch in invalid_chars:
+                filename = filename.replace(ch, '_')
+            return filename
+
         # Generate a filename based on the URL by stripping protocol and replacing problematic characters
         filename = f'{response.url.replace("https://", "").replace("http://", "").replace("/", "_").replace(":", "")}.txt'
+        filename = sanitize_filename(filename)
         local_filename = f'{output_folder_name}/scraped_text_{filename}'
 
         # Save the scraped text locally
@@ -212,6 +219,7 @@ class DynamicTextSpider(Spider):
                 if "aub.edu.lb" in next_page and next_page not in self.visited_urls:
                     self.visited_urls.add(next_page)
                     yield scrapy.Request(next_page, callback=self.parse)
+
 
 
 # Function to run the spider
