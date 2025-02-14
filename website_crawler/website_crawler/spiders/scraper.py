@@ -22,6 +22,7 @@ from azure.storage.blob import BlobServiceClient
 import logging
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
+from urllib.parse import urlparse
 
 # Configure the logging
 logging.basicConfig(
@@ -40,6 +41,11 @@ output_folder_name = "scraper_output"
 container_name = "web-scraper-output"
 standalone_chrome_url= client.get_secret("SELENIUM-URL").value 
 #standalone_chrome_url = https://selenium.bluedune-c06522b4.uaenorth.azurecontainerapps.io/wd/hub
+
+
+EXCLUDED_SUBDOMAINS = ["libcat.aub.edu.lb","scholarworks.aub.edu.lb"]
+
+
 
 class DynamicTextSpider(Spider):
     name = 'dynamic_text_spider'
@@ -159,19 +165,22 @@ class DynamicTextSpider(Spider):
         )
 
         # Attempt to narrow down the extraction to a common main content container if it exists
-        main_container = selenium_response.css("#DeltaPlaceHolderMain")
-        container = main_container if main_container else selenium_response
+        # main_container = selenium_response.css("#DeltaPlaceHolderMain")
+        # container = main_container if main_container else selenium_response
 
+        main_container = selenium_response.css("#DeltaPlaceHolderMain")
+        if main_container:
+            container = main_container
+        else:
+            container = selenium_response.css("body")
         # Use a refined XPath expression to extract text while excluding boilerplate elements.
         all_text = container.xpath(
             './/text()['
             'not(ancestor::header) and '
             'not(ancestor::footer) and '
             'not(ancestor::nav) and '
-            'not(ancestor::aside) and '
             'not(ancestor::*[contains(@class, "breadcrumb")]) and '
             'not(ancestor::*[contains(@class, "quick-access")]) and '
-            'not(ancestor::*[contains(@class, "ms-webpart")]) and '
             'not(ancestor::*[contains(@class, "ms-notif")]) and '
             'not(ancestor::*[contains(@class, "footerlinks")]) and '
             'not(ancestor::*[contains(@class, "nav-social")]) and '
@@ -192,7 +201,7 @@ class DynamicTextSpider(Spider):
             return filename
 
         # Generate a filename based on the URL by stripping protocol and replacing problematic characters
-        filename = f'{response.url.replace("https://", "").replace("http://", "").replace("/", "_").replace(":", "")}.txt'
+        filename = f'{response.url.replace("https://", "").replace("www.","").replace("http://", "").replace("/", "_").replace(":", "")}.txt'
         filename = sanitize_filename(filename)
         local_filename = f'{output_folder_name}/scraped_text_{filename}'
 
@@ -214,16 +223,25 @@ class DynamicTextSpider(Spider):
         for next_page in selenium_response.css('a::attr(href)').getall():
             if next_page:
                 # Skip non-http(s) URLs like "mailto:" or "tel:"
-                if not next_page.startswith("http"):
+                if next_page.startswith("mailto:") or next_page.startswith("tel:"):
                     continue
 
                 # Convert relative URLs to absolute URLs
-                next_page = response.urljoin(next_page)
                 
+                full_url = response.urljoin(next_page)
+                parsed = urlparse(full_url)
+                
+                # Skip the URL if its domain (netloc) is in our excluded list.
+                if parsed.netloc.lower() in EXCLUDED_SUBDOMAINS:
+                    self.logger.debug(f"Skipping excluded domain: {full_url}")
+                    continue
                 # Follow links that belong to the domain 'aub.edu.lb' and haven't been visited yet.
-                if "aub.edu.lb" in next_page and next_page not in self.visited_urls:
-                    self.visited_urls.add(next_page)
-                    yield scrapy.Request(next_page, callback=self.parse)
+                # if "aub.edu.lb" in next_page and next_page not in self.visited_urls:
+                #     self.visited_urls.add(next_page)
+                #     yield scrapy.Request(next_page, callback=self.parse)
+                if "aub.edu.lb" in full_url and full_url not in self.visited_urls:
+                    self.visited_urls.add(full_url)
+                    yield scrapy.Request(full_url, callback=self.parse)
 
 
 
