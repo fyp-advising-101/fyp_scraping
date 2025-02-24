@@ -14,7 +14,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 import scrapy
 from twisted.internet import reactor, defer
 import os
-from models.jobScheduler import JobScheduler
+from models.job import Job
 from database.database import db
 from PyPDF2 import PdfReader  # for extracting text from PDFs
 import requests
@@ -74,9 +74,9 @@ class DynamicTextSpider(Spider):
         logging.info("Closing")
         if self.driver:
             self.driver.quit()
-        job = JobScheduler.query.get(self.job_id)
+        job = Job.query.get(self.job_id)
         if job:
-            job.status = "Completed"
+            job.status = 2
             job.error_message = reason
             db.session.commit()
         logging.info("Spider closed: %s", reason)
@@ -190,8 +190,8 @@ def run_spider(start_urls, job_id, azure_blob_connection_string):
 
     except Exception as e:
         logging.error(e)
-        job = JobScheduler.query.get(job_id)
+        job = Job.query.get(job_id)
         if job:
-            job.status = "Terminated"
+            job.status = -1
             job.error_message = str(e)
             db.session.commit()

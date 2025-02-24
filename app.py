@@ -53,7 +53,7 @@ AZURE_BLOB_CONNECTION_STRING = client.get_secret("AZURE-BLOB-CONNECTION-STRING")
 
 
 with app.app_context():
-    from models.jobScheduler import JobScheduler
+    from models.job import Job
     from models.scrapeTarget import ScrapeTarget
 
     if app.config["SQLALCHEMY_DATABASE_URI"]:
@@ -70,14 +70,14 @@ def scrape():
             #     return jsonify({'error': 'No websites to scrape found in the database.'}), 404 #REMOVE
 
             today = datetime.date.today()
-            # task : JobScheduler = JobScheduler.query.filter_by(task_name='Website Scrape').filter(
-            #     db.func.date(JobScheduler.scheduled_date) == today).first() # REMOVE
+            # task : Job = Job.query.filter_by(task_name='Website Scrape').filter(
+            #     db.func.date(Job.scheduled_date) == today).first() # REMOVE
 
-            task : JobScheduler = JobScheduler.query.filter_by(task_name='Website Scrape').first() # REMOVE AND UNCOMMENT ABOVE 
+            task : Job = Job.query.filter_by(task_name='Website Scrape').first() # REMOVE AND UNCOMMENT ABOVE 
 
             if task:
                 # Update the status to 'running'
-                task.status = 'Running'
+                task.status = 1
                 db.session.commit()
             else:
                 return jsonify({'error': 'No website scrapping task scheduled'}), 404
@@ -106,7 +106,7 @@ def process_text_files():
         try:
             scrape_targets = ScrapeTarget.query.filter_by(type='website').all()
             urls_to_scrape = [target.url for target in scrape_targets]
-            task : JobScheduler = JobScheduler.query.filter_by(task_name='Website Scrape').first()
+            task : Job = Job.query.filter_by(task_name='Website Scrape').first()
             def run_text_file_processor():
                 with app.app_context():
                     try:
@@ -137,12 +137,12 @@ def instagram_scrape():
         
 
         today = datetime.date.today()
-        task : JobScheduler = JobScheduler.query.filter_by(task_name='Get Instagram Content').filter(
-            db.func.date(JobScheduler.scheduled_date) == today).first()
+        task : Job = Job.query.filter_by(task_name='Get Instagram Content').filter(
+            db.func.date(Job.scheduled_date) == today).first()
     
         if task:
                 # Update the status to 'running'
-                task.status = 'Running'
+                task.status = 1
                 db.session.commit()
                 job_id = task.id
         else:
@@ -163,8 +163,8 @@ def process_image_files():
     scrape_targets = ScrapeTarget.query.filter_by(type='instagram').all()
     accounts_to_scrape = [target.url for target in scrape_targets]
     today = datetime.date.today()
-    task : JobScheduler = JobScheduler.query.filter_by(task_name='Get Instagram Content').filter(
-            db.func.date(JobScheduler.scheduled_date) == today).first()
+    task : Job = Job.query.filter_by(task_name='Get Instagram Content').filter(
+            db.func.date(Job.scheduled_date) == today).first()
     try:
         def run_image_file_processor():
                 with app.app_context():

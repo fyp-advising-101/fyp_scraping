@@ -2,7 +2,7 @@ import openai
 import os
 from chroma_db_manager.ChromaDbManager import ChromaDBManager
 from database.database import db
-from models.jobScheduler import JobScheduler
+from models.job import Job
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 from azure.storage.blob import BlobServiceClient
@@ -38,16 +38,16 @@ class TextFileProcessor:
         """
         Process files while there are files in the folder and the scheduler is not terminated.
         """
-        job : JobScheduler = JobScheduler.query.get(self.job_id)
+        job : Job = Job.query.get(self.job_id)
 
-        while True: #job.status != 'Terminated':  # Continue unless the scheduler is terminated # REMOVE
+        while True:
             blob_paginator = self.text_container_client.list_blobs(results_per_page=1000)  # Fetch 100 blobs per page
             paged_blobs = blob_paginator.by_page()
 
             for page in paged_blobs:
                 files = [blob.name for blob in page]
                 if not files:
-                    if job.status == 'Completed':
+                    if job.status == 2:
                         logging.info("Scheduler completed and no more files to process.")
                         break
                     logging.info("No files left to process. Waiting for new files...")
@@ -85,11 +85,11 @@ class TextFileProcessor:
 
                     logging.info(f"File processed: {file}")
 
-                if job.status == 'Completed':
+                if job.status == 2:
                     logging.info("Scheduler completed but there are still files to process.")
                     continue  # Continue processing remaining files
 
-                job = JobScheduler.query.get(self.job_id)
+                job = Job.query.get(self.job_id)
 
             break # REMOVE ?
 
@@ -97,7 +97,7 @@ class TextFileProcessor:
 
     def process_image_files(self):
 
-        job : JobScheduler = JobScheduler.query.get(self.job_id)
+        job : Job = Job.query.get(self.job_id)
         collection_name = "aub_embeddings"
         while True: #job.status != 'Terminated':  # Continue unless the scheduler is terminated # REMOVE
             blob_paginator = self.image_container_client.list_blobs(results_per_page=100)  # Fetch 100 blobs per page
@@ -105,7 +105,7 @@ class TextFileProcessor:
             for page in paged_blobs:
                 files = [blob.name for blob in page]
                 if not files:
-                    if job.status == 'Completed':
+                    if job.status == 2:
                         logging.info("Scheduler completed and no more files to process.")
                         break
                     logging.info("No files left to process. Waiting for new files...")
@@ -136,7 +136,7 @@ class TextFileProcessor:
             for page in paged_blobs:
                 files = [blob.name for blob in page]
                 if not files:
-                    if job.status == 'Completed':
+                    if job.status == 2:
                         logging.info("Scheduler completed and no more text files from images to process.")
                         break
                     logging.info("No text files from images left to process. Waiting for new files...")
