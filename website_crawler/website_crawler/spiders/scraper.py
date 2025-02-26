@@ -22,6 +22,7 @@ from azure.storage.blob import BlobServiceClient
 import logging
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
+from urllib.parse import urlparse
 
 # Configure the logging
 logging.basicConfig(
@@ -41,8 +42,13 @@ container_name = "web-scraper-output"
 standalone_chrome_url= client.get_secret("SELENIUM-URL").value 
 #standalone_chrome_url = https://selenium.bluedune-c06522b4.uaenorth.azurecontainerapps.io/wd/hub
 
+
+
+
+
 class DynamicTextSpider(Spider):
     name = 'dynamic_text_spider'
+    allowed_domains = ['aub.edu.lb']
     def __init__(self, start_urls, job_id, connection_string ,*args, **kwargs):
         super(DynamicTextSpider, self).__init__(*args, **kwargs)
         self.start_urls = start_urls
@@ -71,6 +77,7 @@ class DynamicTextSpider(Spider):
 
     def closed(self, reason):     
         """Close the Selenium WebDriver when spider is closed."""
+        print("Scraping finished!")
         logging.info("Closing")
         if self.driver:
             self.driver.quit()
@@ -86,7 +93,7 @@ class DynamicTextSpider(Spider):
         try:
             response = requests.get(pdf_url, stream=True)
             response.raise_for_status()
-            filename = f'{response.url.replace("https://", "").replace("http://", "").replace("/", "_").replace(":", "")}'
+            filename = f'{response.url.replace("https://", "").replace("www.","").replace("http://", "").replace("/", "_").replace(":", "")}'
             # Save the PDF
             pdf_filename = f'{output_folder_name}/scraped_text_{filename}.pdf'
 
@@ -131,54 +138,114 @@ class DynamicTextSpider(Spider):
 
     def parse(self, response):
         logging.info(f"Processing URL: {response.url}")
+        
+        # If this is a PDF, handle it separately and do not continue with text extraction or link following.
         if response.url.endswith('.pdf') or "application/pdf" in response.headers.get('Content-Type', '').decode():
             self.handle_pdf(response.url)
-            return 
-        
-        # Use Selenium to open the URL
-        self.driver.get(response.url)
+            return
 
+        # Use Selenium to render the page
+        self.driver.get(response.url)
         try:
-            # Wait for the <body> element to load as an example
+            # Wait for the <body> element to load (adjust the timeout if necessary)
             WebDriverWait(self.driver, 60).until(
                 EC.presence_of_element_located((By.TAG_NAME, 'body'))
             )
-
         except Exception as e:
             logging.error(f"Error loading page {response.url}: {e}")
             return
 
-        # Get the rendered HTML
+        # Get the rendered HTML from Selenium and create a Scrapy response object
         html = self.driver.page_source
+        # with open("debug.html", "a", encoding="utf-8") as f:
+        #     f.write(f"Page URL: {response.url}\n\n")
+        #     f.write(html)
+        selenium_response = HtmlResponse(
+            url=response.url,
+            body=html,
+            encoding='utf-8',
+            request=response.request
+        )
 
-        # Create a Scrapy response from the rendered HTML
-        selenium_response = HtmlResponse(url=response.url, body=html, encoding='utf-8', request=response.request)
 
-        # Extract all text from the page excluding scripts and styles
-        all_text = selenium_response.xpath('//body//text()[not(ancestor::footer or ancestor::header or ancestor::script or ancestor::style)]').getall()
+        main_container = selenium_response.css("#DeltaPlaceHolderMain")
+        if main_container:
+            container = main_container
+        else:
+            container = selenium_response.css("body")
+        # Use a refined XPath expression to extract text while excluding boilerplate elements.
+        all_text = container.xpath(
+            './/text()['
+            'not(ancestor::header) and '
+            'not(ancestor::footer) and '
+            'not(ancestor::nav) and '
+            'not(ancestor::*[contains(@class, "breadcrumb")]) and '
+            'not(ancestor::*[contains(@class, "quick-access")]) and '
+            'not(ancestor::*[contains(@class, "ms-notif")]) and '
+            'not(ancestor::*[contains(@class, "footerlinks")]) and '
+            'not(ancestor::*[contains(@class, "nav-social")]) and '
+            'not(ancestor::script) and '
+            'not(ancestor::style)'
+            ']'
+        ).getall()
+
+        # Clean up the text: remove extra whitespace and empty strings
         cleaned_text = [text.strip() for text in all_text if text.strip()]
         full_text = '\n'.join(cleaned_text)
 
-        # Save the scraped text
-        filename = f'{response.url.replace("https://", "").replace("http://", "").replace("/", "_").replace(":", "")}.txt'
+        # Helper function to sanitize the filename (removes illegal characters)
+        def sanitize_filename(filename: str) -> str:
+            invalid_chars = ['?', '/', '\\', ':', '*', '"', '<', '>', '|']
+            for ch in invalid_chars:
+                filename = filename.replace(ch, '_')
+            return filename
+
+        # Generate a filename based on the URL by stripping protocol and replacing problematic characters
+        filename = f'{response.url.replace("https://", "").replace("www.","").replace("http://", "").replace("/", "_").replace(":", "")}.txt'
+        filename = sanitize_filename(filename)
         local_filename = f'{output_folder_name}/scraped_text_{filename}'
+
+        # Save the scraped text locally
         with open(local_filename, 'w', encoding='utf-8') as f:
             f.write(full_text)
-        
         logging.info(f"Saved scraped text to {local_filename}")
-        # Upload to Azure blob storage
+
+        # Upload the text file to Azure Blob Storage
         blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=filename)
         with open(local_filename, "rb") as file:
             blob_client.upload_blob(file, overwrite=True)
+        logging.info(f"Uploaded scraped text to Azure Blob Storage as {filename}")
 
-        # Delete local copy
+        # Delete the local file copy after upload
         os.remove(local_filename)
+
+        # Now, extract all links from the rendered page and follow them
         for next_page in selenium_response.css('a::attr(href)').getall():
             if next_page:
-                next_page = response.urljoin(next_page)
-                if self.start_urls[0] in next_page and next_page not in self.visited_urls:
-                    self.visited_urls.add(next_page)
-                    yield scrapy.Request(next_page, callback=self.parse)
+                # Skip non-http(s) URLs like "mailto:" or "tel:"
+                if next_page.startswith("mailto:") or next_page.startswith("tel:"):
+                    continue
+
+                # Convert relative URLs to absolute URLs
+                full_url = response.urljoin(next_page)
+                parsed = urlparse(full_url)
+
+                # Normalize the domain by stripping leading "www." if present
+                domain = parsed.netloc.lower()
+                if domain.startswith("www."):
+                    domain = domain[4:]
+
+                # Only follow links with domain exactly 'aub.edu.lb'
+                if domain != "aub.edu.lb":
+                    self.logger.debug(f"Skipping non-target domain: {full_url}")
+                    continue
+
+                if full_url not in self.visited_urls:
+                    self.visited_urls.add(full_url)
+                    yield scrapy.Request(full_url, callback=self.parse)
+
+
+
 
 # Function to run the spider
 def run_spider(start_urls, job_id, azure_blob_connection_string):
