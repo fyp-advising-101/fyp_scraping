@@ -43,7 +43,6 @@ standalone_chrome_url= client.get_secret("SELENIUM-URL").value
 #standalone_chrome_url = https://selenium.bluedune-c06522b4.uaenorth.azurecontainerapps.io/wd/hub
 
 
-EXCLUDED_SUBDOMAINS = ["libcat.aub.edu.lb","scholarworks.aub.edu.lb"]
 
 
 
@@ -78,6 +77,7 @@ class DynamicTextSpider(Spider):
 
     def closed(self, reason):     
         """Close the Selenium WebDriver when spider is closed."""
+        print("Scraping finished!")
         logging.info("Closing")
         if self.driver:
             self.driver.quit()
@@ -93,7 +93,7 @@ class DynamicTextSpider(Spider):
         try:
             response = requests.get(pdf_url, stream=True)
             response.raise_for_status()
-            filename = f'{response.url.replace("https://", "").replace("http://", "").replace("/", "_").replace(":", "")}'
+            filename = f'{response.url.replace("https://", "").replace("www.","").replace("http://", "").replace("/", "_").replace(":", "")}'
             # Save the PDF
             pdf_filename = f'{output_folder_name}/scraped_text_{filename}.pdf'
 
@@ -157,6 +157,9 @@ class DynamicTextSpider(Spider):
 
         # Get the rendered HTML from Selenium and create a Scrapy response object
         html = self.driver.page_source
+        # with open("debug.html", "a", encoding="utf-8") as f:
+        #     f.write(f"Page URL: {response.url}\n\n")
+        #     f.write(html)
         selenium_response = HtmlResponse(
             url=response.url,
             body=html,
@@ -164,9 +167,6 @@ class DynamicTextSpider(Spider):
             request=response.request
         )
 
-        # Attempt to narrow down the extraction to a common main content container if it exists
-        # main_container = selenium_response.css("#DeltaPlaceHolderMain")
-        # container = main_container if main_container else selenium_response
 
         main_container = selenium_response.css("#DeltaPlaceHolderMain")
         if main_container:
@@ -227,19 +227,20 @@ class DynamicTextSpider(Spider):
                     continue
 
                 # Convert relative URLs to absolute URLs
-                
                 full_url = response.urljoin(next_page)
                 parsed = urlparse(full_url)
-                
-                # Skip the URL if its domain (netloc) is in our excluded list.
-                if parsed.netloc.lower() in EXCLUDED_SUBDOMAINS:
-                    self.logger.debug(f"Skipping excluded domain: {full_url}")
+
+                # Normalize the domain by stripping leading "www." if present
+                domain = parsed.netloc.lower()
+                if domain.startswith("www."):
+                    domain = domain[4:]
+
+                # Only follow links with domain exactly 'aub.edu.lb'
+                if domain != "aub.edu.lb":
+                    self.logger.debug(f"Skipping non-target domain: {full_url}")
                     continue
-                # Follow links that belong to the domain 'aub.edu.lb' and haven't been visited yet.
-                # if "aub.edu.lb" in next_page and next_page not in self.visited_urls:
-                #     self.visited_urls.add(next_page)
-                #     yield scrapy.Request(next_page, callback=self.parse)
-                if "aub.edu.lb" in full_url and full_url not in self.visited_urls:
+
+                if full_url not in self.visited_urls:
                     self.visited_urls.add(full_url)
                     yield scrapy.Request(full_url, callback=self.parse)
 

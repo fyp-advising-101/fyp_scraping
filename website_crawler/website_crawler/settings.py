@@ -31,7 +31,7 @@ CONCURRENT_REQUESTS_PER_DOMAIN = 32
 #CONCURRENT_REQUESTS_PER_IP = 16
 
 # Disable cookies (enabled by default)
-#COOKIES_ENABLED = False
+COOKIES_ENABLED = False
 
 # Disable Telnet Console (enabled by default)
 #TELNETCONSOLE_ENABLED = False
@@ -87,5 +87,5 @@ RETRY_TIMES = 2
 AUTOTHROTTLE_ENABLED = True
 AUTOTHROTTLE_START_DELAY = 5         # Initial download delay (in seconds)
 AUTOTHROTTLE_MAX_DELAY = 60          # Maximum download delay in case of high latencies
-AUTOTHROTTLE_TARGET_CONCURRENCY = 2.0  # Average number of requests to send in parallel to each remote server
+AUTOTHROTTLE_TARGET_CONCURRENCY = 3.0  # Average number of requests to send in parallel to each remote server
 AUTOTHROTTLE_DEBUG = False           # Disable throttling debug output for less cluttered logs
