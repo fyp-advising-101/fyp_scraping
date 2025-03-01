@@ -7,7 +7,8 @@ import logging
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from azure.storage.blob import BlobServiceClient
-import datetime
+from datetime import datetime
+import chromadb.utils.embedding_functions as embedding_functions
 
 logging.basicConfig(
     level=logging.DEBUG,  # Set the logging level
@@ -30,21 +31,25 @@ class ChromaDBManager:
         self.client = HttpClient(host=chroma_hostname, port=int(chroma_port))
         openai.api_key = openai_api_key
         self.blob_service_client = BlobServiceClient.from_connection_string(AZURE_BLOB_CONNECTION_STRING)
+        self.embedding_function = embedding_functions.OpenAIEmbeddingFunction(
+            api_key=openai_api_key,
+            model_name="text-embedding-3-large"
+        )
 
     def get_or_create_collection(self, collection_name):
         """Get or create a Chroma DB collection."""
-        return self.client.get_or_create_collection(name=collection_name)
+        return self.client.get_or_create_collection(name=collection_name,embedding_function=self.embedding_function)
 
-    def generate_embedding(self, text):
-        """Generate an embedding for a given text using OpenAI API."""
-        response = openai.embeddings.create(input=text, model="text-embedding-3-large")
-        return response.data[0].embedding
+    # def generate_embedding(self, text):
+    #     """Generate an embedding for a given text using OpenAI API."""
+    #     response = openai.embeddings.create(input=text, model="text-embedding-3-large")
+    #     return response.data[0].embedding
 
     def add_or_update_text_entry(self, collection_name, entry_id, text):
         """Add or update an entry in the Chroma DB."""
         collection = self.get_or_create_collection(collection_name)
         logging.info("collection found: "+ collection_name)
-        embedding = self.generate_embedding(text.page_content)
+        # embedding = self.generate_embedding(text.page_content)
         # Check if entry already exists
         existing_entries = collection.get(ids=[entry_id])['ids']
 
@@ -55,11 +60,12 @@ class ChromaDBManager:
         # Add the new or updated entry
         collection.add(
             ids=[entry_id],
-            embeddings=[embedding],
+            # embeddings=[embedding],
             documents=[text.page_content],
             metadatas=[{"date_added": datetime.now().isoformat(), "category": "info"}]
         )
-        logging.info("Entry with ID" + entry_id + " added/updated successfully!")
+        logging.info("Entry with ID: " + entry_id + " added/updated successfully!")
+        print("Entry with ID: " + entry_id + " added/updated successfully!")
 
     def add_or_update_image_entry(self, collection_name, filename, text):
         """Add or update an entry in the Chroma DB."""
@@ -81,7 +87,7 @@ class ChromaDBManager:
             ids=[entry_id],
             embeddings=[embedding],
             documents=[text.page_content],
-            metadatas=[{"date_added": datetime.datetime.now().isoformat(), "category": category }]
+            metadatas=[{"date_added": datetime.now().isoformat(), "category": category }]
         )
         logging.info("Entry with ID" + entry_id + " added/updated successfully!")
 

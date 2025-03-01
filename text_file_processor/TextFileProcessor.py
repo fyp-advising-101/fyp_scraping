@@ -39,13 +39,14 @@ class TextFileProcessor:
         Process files while there are files in the folder and the scheduler is not terminated.
         """
         job : Job = Job.query.get(self.job_id)
-
+        manager = ChromaDBManager(db_path=db_path, openai_api_key=openai.api_key)
         while True:
-            blob_paginator = self.text_container_client.list_blobs(results_per_page=1000)  # Fetch 100 blobs per page
+            blob_paginator = self.text_container_client.list_blobs(results_per_page=500)  # Fetch 100 blobs per page
             paged_blobs = blob_paginator.by_page()
 
             for page in paged_blobs:
                 files = [blob.name for blob in page]
+                print(files)
                 if not files:
                     if job.status == 2:
                         logging.info("Scheduler completed and no more files to process.")
@@ -58,16 +59,15 @@ class TextFileProcessor:
                     # Simulate file processing
                     # Assuming a cleaned up file
 
-                    manager = ChromaDBManager(db_path=db_path, openai_api_key=openai.api_key)
+                    
 
                     try:
                         blob_client = self.text_container_client.get_blob_client(file)
                         content = blob_client.download_blob().readall().decode('utf-8')
-                        text_splitter = RecursiveCharacterTextSplitter( # Params probably need adjustment
-                            chunk_size = 100,
-                            chunk_overlap  = 20,
-                            length_function = len,
-                            is_separator_regex = False,
+                        text_splitter = RecursiveCharacterTextSplitter(
+                            chunk_size=800,         
+                            chunk_overlap=200,       
+                            separators=["\n\n", "\n", ". ", " ", ""],  
                         )
                         document = Document(page_content=content, metadata={"source": "example_source"})
                         data = text_splitter.split_documents([document])
@@ -77,6 +77,7 @@ class TextFileProcessor:
                             entry_id = f"{file}-{index}"
                             text = item # Document object
                             manager.add_or_update_text_entry(collection_name, entry_id, text)
+                            print("\n")
 
                     except FileNotFoundError:
                         logging.error(f"File not found: {file}")
@@ -90,8 +91,9 @@ class TextFileProcessor:
                     continue  # Continue processing remaining files
 
                 job = Job.query.get(self.job_id)
+                
 
-            break # REMOVE ?
+            break 
 
         logging.info(f"Exiting: Scheduler status is '{job.status}'. All files processed or terminated.")
 
@@ -99,6 +101,8 @@ class TextFileProcessor:
 
         job : Job = Job.query.get(self.job_id)
         collection_name = "aub_embeddings"
+        manager = ChromaDBManager(db_path=db_path, openai_api_key=openai.api_key)
+
         while True: #job.status != 'Terminated':  # Continue unless the scheduler is terminated # REMOVE
             blob_paginator = self.image_container_client.list_blobs(results_per_page=100)  # Fetch 100 blobs per page
             paged_blobs = blob_paginator.by_page()
@@ -111,7 +115,6 @@ class TextFileProcessor:
                     logging.info("No files left to process. Waiting for new files...")
                     continue  # Wait for new files if the scheduler is still running
 
-                manager = ChromaDBManager(db_path=db_path, openai_api_key=openai.api_key)
 
                 for file in files:
                     blob_client = self.image_container_client.get_blob_client(file)
@@ -142,7 +145,6 @@ class TextFileProcessor:
                     logging.info("No text files from images left to process. Waiting for new files...")
                     continue  # Wait for new files if the scheduler is still running
 
-                manager = ChromaDBManager(db_path=db_path, openai_api_key=openai.api_key)
                 for file in files:
                     blob_client = self.processed_image_container_client.get_blob_client(file)
                     logging.info(f"Processing file: {file}")

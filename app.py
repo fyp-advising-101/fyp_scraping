@@ -104,8 +104,8 @@ def scrape():
 @app.route('/process_text_files', methods = ["GET"])
 def process_text_files():
         try:
-            scrape_targets = ScrapeTarget.query.filter_by(type='website').all()
-            urls_to_scrape = [target.url for target in scrape_targets]
+            # scrape_targets = ScrapeTarget.query.filter_by(type='website').all()
+            # urls_to_scrape = [target.url for target in scrape_targets]
             task : Job = Job.query.filter_by(task_name='Website Scrape').first()
             def run_text_file_processor():
                 with app.app_context():
@@ -119,7 +119,7 @@ def process_text_files():
             
 
             
-            return jsonify({'message': f'Processing started for files from URLs: {urls_to_scrape}', 'task_name': task.task_name}), 200
+            return jsonify({'message': f'Processing started for files from URLs: url', 'task_name': task.task_name}), 200
         except Exception as e:
             logging.error(f'Error while processing text files: {e}')
             db.session.rollback()
