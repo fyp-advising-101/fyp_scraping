@@ -21,14 +21,12 @@ logging.basicConfig(
 VAULT_URL = "https://advising101vault.vault.azure.net"
 credential = DefaultAzureCredential()
 client = SecretClient(vault_url=VAULT_URL, credential=credential)
-chroma_hostname = client.get_secret("CHROMA-HOSTNAME").value
-chroma_port = client.get_secret("CHROMA-PORT").value
 AZURE_BLOB_CONNECTION_STRING = client.get_secret("AZURE-BLOB-CONNECTION-STRING").value
 text_container_name = "processed-instagram-scraper-output"
 
 class ChromaDBManager:
     def __init__(self, db_path, openai_api_key):
-        self.client = HttpClient(host=chroma_hostname, port=int(chroma_port))
+        self.client = HttpClient(host='20.203.61.164', port=8000)
         openai.api_key = openai_api_key
         self.blob_service_client = BlobServiceClient.from_connection_string(AZURE_BLOB_CONNECTION_STRING)
         self.embedding_function = embedding_functions.OpenAIEmbeddingFunction(
@@ -60,7 +58,6 @@ class ChromaDBManager:
         # Add the new or updated entry
         collection.add(
             ids=[entry_id],
-            # embeddings=[embedding],
             documents=[text.page_content],
             metadatas=[{"date_added": datetime.now().isoformat(), "category": "info"}]
         )
@@ -74,7 +71,6 @@ class ChromaDBManager:
         category = split_filename[0]
         collection = self.get_or_create_collection(collection_name)
         logging.info("collection found: "+ collection_name)
-        embedding = self.generate_embedding(text.page_content)
         # Check if entry already exists
         existing_entries = collection.get(ids=[entry_id])['ids']
 
@@ -85,7 +81,6 @@ class ChromaDBManager:
         # Add the new or updated entry
         collection.add(
             ids=[entry_id],
-            embeddings=[embedding],
             documents=[text.page_content],
             metadatas=[{"date_added": datetime.now().isoformat(), "category": category }]
         )
