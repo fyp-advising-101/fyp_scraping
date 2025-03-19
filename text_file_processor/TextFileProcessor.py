@@ -65,8 +65,8 @@ class TextFileProcessor:
                         blob_client = self.text_container_client.get_blob_client(file)
                         content = blob_client.download_blob().readall().decode('utf-8')
                         text_splitter = RecursiveCharacterTextSplitter(
-                            chunk_size=800,         
-                            chunk_overlap=200,       
+                            chunk_size=1400,         
+                            chunk_overlap=350,       
                             separators=["\n\n", "\n", ". ", " ", ""],  
                         )
                         document = Document(page_content=content, metadata={"source": "example_source"})
