@@ -182,6 +182,44 @@ def process_image_files():
         logging.error(f'Error while processing images: {e}')
         db.session.rollback()
         return jsonify({'message': f'Error while processing images: {e}'}), 200
+    
+@app.route("/delete_outdated_instagram_content", methods=['DELETE'])
+def delete_outdated_instagram_content():
+    try:
+        from chromadb import HttpClient
+        import chromadb.utils.embedding_functions as embedding_functions
+
+        client = HttpClient(host='20.203.61.164', port=8000)
+        #Get or create the collection
+        collection = client.get_or_create_collection(name="aub_embeddings", embedding_function= embedding_functions.OpenAIEmbeddingFunction(
+                    api_key=OPENAI_API_KEY, model_name="text-embedding-3-large"
+                ))
+
+        results = collection.get(
+            where={"category": {"$ne": "info"}}
+        )
+
+        # Step 2: Filter by date manually
+        from datetime import datetime, timedelta
+
+        cutoff = (datetime.today() - timedelta(days=30)).date()
+
+        filtered_results = {
+            key: [
+                item for item, meta in zip(results[key], results['metadatas'])
+                if 'date_added' in meta and meta['date_added'] < cutoff.isoformat()
+            ]
+            for key in ['ids', 'documents', 'metadatas']
+        }
+
+        for result in (filtered_results['documents']):
+            print(result)
+
+        collection.delete(ids=filtered_results['ids'])
+        return '', 200
+    except Exception as e:
+        logging.error(e)
+        return "error while purging old content", 400
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=80)
