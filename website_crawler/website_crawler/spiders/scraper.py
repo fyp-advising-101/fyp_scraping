@@ -23,6 +23,8 @@ import logging
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from urllib.parse import urlparse
+import sqlite3
+
 
 # Configure the logging
 logging.basicConfig(
@@ -55,7 +57,7 @@ class DynamicTextSpider(Spider):
         #self.start_urls = ['https://www.aub.edu.lb/registrar/Documents/catalogue/undergraduate22-23/ece.pdf']
         self.job_id = job_id
         self.blob_service_client = BlobServiceClient.from_connection_string(connection_string)
-        self.visited_urls = set()
+        self.visited_urls = self.load_visited_urls()
 
         os.makedirs(output_folder_name, exist_ok=True)
 
@@ -87,6 +89,33 @@ class DynamicTextSpider(Spider):
             job.error_message = reason
             db.session.commit()
         logging.info("Spider closed: %s", reason)
+
+    def init_visited_db(self):
+        conn = sqlite3.connect("visited_urls.db")
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE IF NOT EXISTS visited (url TEXT PRIMARY KEY)")
+        conn.commit()
+        conn.close()
+
+    def load_visited_urls(self):
+        self.init_visited_db()
+        conn = sqlite3.connect("visited_urls.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT url FROM visited")
+        rows = cursor.fetchall()
+        conn.close()
+        return set(row[0] for row in rows)
+
+    def save_visited_url(self, url):
+        try:
+            conn = sqlite3.connect("visited_urls.db")
+            cursor = conn.cursor()
+            cursor.execute("INSERT OR IGNORE INTO visited (url) VALUES (?)", (url,))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            logging.error(f"Error saving visited url {url}: {e}")
+
 
     def handle_pdf(self, pdf_url):
         logging.info(f"Processing PDF: {pdf_url}")
@@ -139,15 +168,12 @@ class DynamicTextSpider(Spider):
     def parse(self, response):
         logging.info(f"Processing URL: {response.url}")
         
-        # If this is a PDF, handle it separately and do not continue with text extraction or link following.
         if response.url.endswith('.pdf') or "application/pdf" in response.headers.get('Content-Type', '').decode():
             self.handle_pdf(response.url)
             return
 
-        # Use Selenium to render the page
-        self.driver.get(response.url)
         try:
-            # Wait for the <body> element to load (adjust the timeout if necessary)
+            self.driver.get(response.url)
             WebDriverWait(self.driver, 60).until(
                 EC.presence_of_element_located((By.TAG_NAME, 'body'))
             )
@@ -155,7 +181,6 @@ class DynamicTextSpider(Spider):
             logging.error(f"Error loading page {response.url}: {e}")
             return
 
-        # Get the rendered HTML from Selenium and create a Scrapy response object
         html = self.driver.page_source
         # with open("debug.html", "a", encoding="utf-8") as f:
         #     f.write(f"Page URL: {response.url}\n\n")
@@ -166,83 +191,71 @@ class DynamicTextSpider(Spider):
             encoding='utf-8',
             request=response.request
         )
+        detected_links = selenium_response.css('a::attr(href)').getall()
+        for link in detected_links:
+            logging.info(f"Detected page: {link}")
 
+        try:
+            main_container = selenium_response.css("#DeltaPlaceHolderMain")
+            container = main_container if main_container else selenium_response.css("body")
+            all_text = container.xpath(
+                './/text()['
+                'not(ancestor::header) and '
+                'not(ancestor::footer) and '
+                'not(ancestor::nav) and '
+                'not(ancestor::*[contains(@class, "breadcrumb")]) and '
+                'not(ancestor::*[contains(@class, "quick-access")]) and '
+                'not(ancestor::*[contains(@class, "ms-notif")]) and '
+                'not(ancestor::*[contains(@class, "footerlinks")]) and '
+                'not(ancestor::*[contains(@class, "nav-social")]) and '
+                'not(ancestor::script) and '
+                'not(ancestor::style)'
+                ']'
+            ).getall()
+            cleaned_text = [text.strip() for text in all_text if text.strip()]
+            full_text = '\n'.join(cleaned_text)
 
-        main_container = selenium_response.css("#DeltaPlaceHolderMain")
-        if main_container:
-            container = main_container
-        else:
-            container = selenium_response.css("body")
-        # Use a refined XPath expression to extract text while excluding boilerplate elements.
-        all_text = container.xpath(
-            './/text()['
-            'not(ancestor::header) and '
-            'not(ancestor::footer) and '
-            'not(ancestor::nav) and '
-            'not(ancestor::*[contains(@class, "breadcrumb")]) and '
-            'not(ancestor::*[contains(@class, "quick-access")]) and '
-            'not(ancestor::*[contains(@class, "ms-notif")]) and '
-            'not(ancestor::*[contains(@class, "footerlinks")]) and '
-            'not(ancestor::*[contains(@class, "nav-social")]) and '
-            'not(ancestor::script) and '
-            'not(ancestor::style)'
-            ']'
-        ).getall()
+            def sanitize_filename(filename: str) -> str:
+                invalid_chars = ['?', '/', '\\', ':', '*', '"', '<', '>', '|']
+                for ch in invalid_chars:
+                    filename = filename.replace(ch, '_')
+                return filename
 
-        # Clean up the text: remove extra whitespace and empty strings
-        cleaned_text = [text.strip() for text in all_text if text.strip()]
-        full_text = '\n'.join(cleaned_text)
+            filename = f'{response.url.replace("https://", "").replace("www.","").replace("http://", "").replace("/", "_").replace(":", "")}.txt'
+            filename = sanitize_filename(filename)
+            local_filename = f'{output_folder_name}/scraped_text_{filename}'
 
-        # Helper function to sanitize the filename (removes illegal characters)
-        def sanitize_filename(filename: str) -> str:
-            invalid_chars = ['?', '/', '\\', ':', '*', '"', '<', '>', '|']
-            for ch in invalid_chars:
-                filename = filename.replace(ch, '_')
-            return filename
+            with open(local_filename, 'w', encoding='utf-8') as f:
+                f.write(full_text)
+            logging.info(f"Saved scraped text to {local_filename}")
 
-        # Generate a filename based on the URL by stripping protocol and replacing problematic characters
-        filename = f'{response.url.replace("https://", "").replace("www.","").replace("http://", "").replace("/", "_").replace(":", "")}.txt'
-        filename = sanitize_filename(filename)
-        local_filename = f'{output_folder_name}/scraped_text_{filename}'
+            blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=filename)
+            with open(local_filename, "rb") as file:
+                blob_client.upload_blob(file, overwrite=True)
+            logging.info(f"Uploaded scraped text to Azure Blob Storage as {filename}")
 
-        # Save the scraped text locally
-        with open(local_filename, 'w', encoding='utf-8') as f:
-            f.write(full_text)
-        logging.info(f"Saved scraped text to {local_filename}")
+            os.remove(local_filename)
+        except Exception as e:
+            logging.error(f"Error processing page content from {response.url}: {e}")
 
-        # Upload the text file to Azure Blob Storage
-        blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=filename)
-        with open(local_filename, "rb") as file:
-            blob_client.upload_blob(file, overwrite=True)
-        logging.info(f"Uploaded scraped text to Azure Blob Storage as {filename}")
-
-        # Delete the local file copy after upload
-        os.remove(local_filename)
-
-        # Now, extract all links from the rendered page and follow them
         for next_page in selenium_response.css('a::attr(href)').getall():
             if next_page:
-                # Skip non-http(s) URLs like "mailto:" or "tel:"
                 if next_page.startswith("mailto:") or next_page.startswith("tel:"):
                     continue
-
-                # Convert relative URLs to absolute URLs
                 full_url = response.urljoin(next_page)
                 parsed = urlparse(full_url)
-
-                # Normalize the domain by stripping leading "www." if present
                 domain = parsed.netloc.lower()
                 if domain.startswith("www."):
                     domain = domain[4:]
-
-                # Only follow links with domain exactly 'aub.edu.lb'
                 if domain != "aub.edu.lb":
                     self.logger.debug(f"Skipping non-target domain: {full_url}")
                     continue
-
                 if full_url not in self.visited_urls:
                     self.visited_urls.add(full_url)
+                    self.save_visited_url(full_url)
                     yield scrapy.Request(full_url, callback=self.parse)
+
+
 
 
 
